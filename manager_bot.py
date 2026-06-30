@@ -10,10 +10,13 @@ import math
 import psutil
 from threading import Thread
 
-# central environmental db toggle & Mongo activation
+# ==========================================
+# 🛑 ORCHESTRATOR ENVIRONMENT SETTINGS
+# ==========================================
+# অভিভাবক প্রসেস হিসেবে ডাটাবেজ এবং মঙ্গোডিবি সিঙ্ক চালুর ঘোষণা
 os.environ["USE_DB"] = "TRUE"
 os.environ["MONGO_SYNC_ENABLED"] = "TRUE"
-os.environ["RUN_STARTUP_SYNC"] = "TRUE" # Flag identifying the master orchestrator sync authority
+os.environ["RUN_STARTUP_SYNC"] = "TRUE"  # শুধুমাত্র ম্যানেজার বটের প্রথম রানে সিঙ্ক ট্রিপ হবে
 
 import data_coordinator
 
@@ -94,8 +97,6 @@ def normalize_bot_list(bots_data, key):
     return normalized
 
 # STRICT ACTIVE LIMIT RULES ENFORCED DURING COMPILATION:
-# Active Target Limit 1 = vv.json 2 (Limit * 2)
-# Active Target Limit 3 = bot.json 1 (Ceil(Limit / 3))
 def compile_master_bots():
     master_bot = []
     master_vv = {}
@@ -109,7 +110,6 @@ def compile_master_bots():
         data = get_user_bots(username)
         member_record = next((m for m in members if m['username'] == username), None)
         
-        # 🚀 FIXED: "creator" ইউজারটির ডাটাবেজে রিকর্ড না থাকলেও সে সর্বদা গ্লোবাল ডিফল্ট লিমিট পাবে
         if username == "creator" or (member_record and member_record.get('role') in ['owner', 'creator']):
             limit_cfg = load_json(LIMIT_FILE, {"global_limit": 40})
             user_max_active = int(limit_cfg.get('global_limit', 40))
@@ -124,7 +124,7 @@ def compile_master_bots():
         normalized_bots = normalize_bot_list(data, 'bot')
         normalized_vvs = normalize_bot_list(data, 'vv')
 
-        # Strictly prune excess bots beyond the limits
+        # Limits অনুযায়ী প্রুনিং বা ফিল্টারিং সম্পন্ন করা
         normalized_bots = normalized_bots[:allowed_bot_count]
         normalized_vvs = normalized_vvs[:allowed_vv_count]
 
@@ -160,12 +160,10 @@ def get_user_usable_limit(username):
     return self_usable + owner_given_active_limit
 
 # STRICT MAPS DISTRIBUTION ENFORCED UNCONDITIONALLY:
-# targets.txt -> Exactly 1 target UID per list (number of lists = vv.json attacker bot count)
-# check.txt -> Exactly 3 target UIDs per list (number of lists = bot.json tracker bot count)
 def distribute_targets():
-    bot_data = load_json(BOT_FILE, []) # Trackers
-    vv_data = load_json(VV_FILE, {})   # Attackers
-    active_data = load_json(ACTIVE_FILE, []) # Active queue
+    bot_data = load_json(BOT_FILE, []) 
+    vv_data = load_json(VV_FILE, {})   
+    active_data = load_json(ACTIVE_FILE, []) 
     
     user_targets = {}
     for t in active_data:
@@ -189,7 +187,6 @@ def distribute_targets():
                 
     save_json(ACTIVE_FILE, active_data)
     
-    # Filter whitelisted targets
     whitelist = load_json('whitelist.json', {"players": [], "guilds": []})
     profiles = load_json('profile.json', {})
     filtered_uids = []
@@ -201,7 +198,7 @@ def distribute_targets():
         if clan_id != "N/A" and clan_id in whitelist.get("guilds", []): continue
         filtered_uids.append(u_str)
 
-    # check.txt STRICT DISTRIBUTION (Exactly 3 UIDs per Tracker bot list)
+    # check.txt ফিজিক্যাল ডিস্ট্রিবিউশন
     tracker_count = len(bot_data)
     check_distribution = {str(i): [] for i in range(1, tracker_count + 1)}
     
@@ -211,11 +208,11 @@ def distribute_targets():
             if bot_idx <= tracker_count:
                 check_distribution[str(bot_idx)].append(uid)
             else:
-                break # Strictly ignore and truncate extra UIDs beyond capacity
+                break
 
     save_json(CHECK_FILE, check_distribution)
 
-    # targets.txt STRICT DISTRIBUTION (Exactly 1 UID per Attacker bot list)
+    # targets.txt ফিজিক্যাল ডিস্ট্রিবিউশন
     attacker_count = len(vv_data)
     targets_distribution = {str(i): [] for i in range(1, attacker_count + 1)}
     
@@ -225,14 +222,10 @@ def distribute_targets():
             if bot_idx <= attacker_count:
                 targets_distribution[str(bot_idx)].append(uid)
             else:
-                break # Strictly ignore and truncate extra UIDs beyond capacity
+                break
 
     save_json(TARGETS_TXT, targets_distribution)
 
-# CIRCULAR BOT LIFECYCLE AND INTER-FILE ROUTING GATEWAY:
-# Sourcing rule:
-# - 'vv' primarily pulls from stock.json. If empty, falls back to ex.json.
-# - 'bot' or 'api' primarily pulls from ex.json. If empty, falls back to stock.json.
 def pull_account_for_type(target_type):
     ex_bots = load_json(EX_FILE, [])
     stock = load_json(STOCK_FILE, [])
@@ -259,7 +252,6 @@ def pull_account_for_type(target_type):
             
     return pulled
 
-# ROTATION IMPLEMENTATION WITH STRICT ex.json TRANSFER
 def handle_vv_rotations():
     vv_bots = load_json(VV_FILE, {}) 
     vv_timers = load_json(VV_TIMERS_FILE, {})
@@ -285,14 +277,12 @@ def handle_vv_rotations():
         for uid in expired_uids:
             pwd = vv_bots.get(uid, "")
             
-            # Transfer the expired attacker bot to ex.json
             if not any(item.get('uid') == uid for item in ex_bots if isinstance(item, dict)):
                 ex_bots.append({"uid": uid, "password": pwd})
                 
             if uid in vv_bots: del vv_bots[uid]
             if uid in vv_timers: del vv_timers[uid]
                 
-            # Pull a replacement bot following the strict sourcing rules
             save_json(VV_FILE, vv_bots)
             save_json(VV_TIMERS_FILE, vv_timers)
             save_json(EX_FILE, ex_bots)
@@ -303,14 +293,12 @@ def handle_vv_rotations():
                 new_uid = str(new_acc.get('uid')).strip()
                 new_pwd = str(new_acc.get('password')).strip()
                 
-                # Load again to capture mutated structures safely
                 vv_bots = load_json(VV_FILE, {})
                 vv_timers = load_json(VV_TIMERS_FILE, {})
                 
                 vv_bots[new_uid] = new_pwd
                 vv_timers[new_uid] = current_time
                 
-                # Update individual users config database
                 members = load_json(MEMBERS_FILE, [])
                 usernames = [m.get('username') for m in members if m.get('username')]
                 if "creator" not in usernames: usernames.append("creator")
@@ -340,10 +328,6 @@ def handle_vv_rotations():
     elif changed:
         save_json(VV_TIMERS_FILE, vv_timers)
 
-# AUTO DISTRIBUTE AND MATH SCALING ENGINE:
-# Attack limit 1 = vv.json 2
-# Attack limit 3 = bot.json 1
-# Active limit 1000 = api.json 20 (Ratio of Active Limit / 50)
 def auto_distribute_bots():
     limit_cfg = load_json(LIMIT_FILE, {"global_limit": 40, "api_limit": 2})
     global_limit = int(limit_cfg.get('global_limit', 40))
@@ -359,7 +343,6 @@ def auto_distribute_bots():
     
     changed = False
 
-    # 1. Scale API Bots Up/Down based on config
     if len(api_bots) < api_limit:
         while len(api_bots) < api_limit:
             new_acc = pull_account_for_type('api')
@@ -368,7 +351,6 @@ def auto_distribute_bots():
                 changed = True
             else: break
 
-    # Get count of actually running filtered target UIDs to determine dynamic limits
     active_data = load_json(ACTIVE_FILE, [])
     user_targets = {}
     for t in active_data:
@@ -385,7 +367,6 @@ def auto_distribute_bots():
             if i < usable_limit:
                 total_active_uids.append(t['uid'])
 
-    # Filter whitelisted targets
     whitelist = load_json('whitelist.json', {"players": [], "guilds": []})
     profiles = load_json('profile.json', {})
     filtered_uids = []
@@ -397,8 +378,6 @@ def auto_distribute_bots():
         if clan_id != "N/A" and clan_id in whitelist.get("guilds", []): continue
         filtered_uids.append(u_str)
 
-    # 🚀 CALCULATE THE STRICT BOT TARGET COUNT LIMITS:
-    # 🚀 FIXED: If no active targets are present, scale needed bots strictly to 0
     if len(filtered_uids) == 0:
         needed_attackers = 0
         needed_trackers = 0
@@ -411,7 +390,6 @@ def auto_distribute_bots():
 
     creator_data = None
 
-    # 🚀 DYNAMIC SCALE DOWN IMPLEMENTATION WITH BASELINE THRESHOLDS:
     if len(vv_bots) > needed_attackers:
         print(f"[-] Scaling down attackers. Excess: {len(vv_bots) - needed_attackers} bots.")
         if not creator_data: creator_data = get_user_bots("creator")
@@ -421,11 +399,8 @@ def auto_distribute_bots():
         while len(vv_bots) > needed_attackers:
             pop_uid = list(vv_bots.keys())[-1]
             pop_pwd = vv_bots.pop(pop_uid)
-            
-            # Remove from creator list
             vvs = [v for v in vvs if str(v.get('uid')) != pop_uid]
             
-            # Recycled to ex.json
             if not any(item.get('uid') == pop_uid for item in ex_bots if isinstance(item, dict)):
                 ex_bots.append({"uid": pop_uid, "password": pop_pwd})
             changed = True
@@ -443,11 +418,8 @@ def auto_distribute_bots():
             pop_bot = bot_bots.pop()
             pop_uid = str(pop_bot.get('uid'))
             pop_pwd = str(pop_bot.get('password'))
-            
-            # Remove from creator list
             bots = [b for b in bots if str(b.get('uid')) != pop_uid]
             
-            # Recycled to ex.json
             if not any(item.get('uid') == pop_uid for item in ex_bots if isinstance(item, dict)):
                 ex_bots.append({"uid": pop_uid, "password": pop_pwd})
             changed = True
@@ -455,7 +427,7 @@ def auto_distribute_bots():
         creator_data['bot'] = bots
         save_json(EX_FILE, ex_bots)
 
-    # Scale Attackers Up (vv.json)
+    # Scale Attackers Up
     while len(vv_bots) < needed_attackers and len(vv_bots) < max_vv_slots:
         new_acc = pull_account_for_type('vv')
         if new_acc:
@@ -469,7 +441,7 @@ def auto_distribute_bots():
         else:
             break
             
-    # Scale Trackers Up (bot.json)
+    # Scale Trackers Up
     while len(bot_bots) < needed_trackers and len(bot_bots) < max_tracker_slots:
         new_acc = pull_account_for_type('bot')
         if new_acc:
@@ -611,7 +583,8 @@ def start_process(script_name):
     my_env = os.environ.copy()
     my_env["USE_DB"] = "TRUE" 
     my_env["MONGO_SYNC_ENABLED"] = "TRUE" 
-    my_env["RUN_STARTUP_SYNC"] = "FALSE" # Instruct spawned subprocesses to bypass startup MongoDB sync checks
+    # সাব-প্রসেস রানটাইমে ক্লাউড ডবল-সিঙ্ক এড়িয়ে ডাটাবেজ লক হওয়া রোধ করতে "FALSE" সেট করা হলো
+    my_env["RUN_STARTUP_SYNC"] = "FALSE" 
     return subprocess.Popen([sys.executable, script_name], env=my_env)
 
 def stop_process(proc, script_name):
