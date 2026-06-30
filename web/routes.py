@@ -576,6 +576,10 @@ def clear_database_data():
         elif target == 'api': save_json_locked(FILES['api_json'], []); msg = "API accounts database successfully cleared!"
         elif target == 'bot': save_json_locked(FILES['bot'], []); msg = "Live tracker bots cleared!"
         elif target == 'vv': save_json_locked(FILES['vv'], {}); msg = "Live attacker bots cleared!"
+        
+        # 🚀 ex.json (Fallback bots) পার্মানেন্ট ডিলিট সিঙ্ক
+        elif target == 'ex': save_json_locked('ex.json', []); msg = "Fallback expired bots successfully cleared!"
+        
         elif target == 'targets': save_json_locked(FILES['targets_txt'], {}); msg = "Attacker targets cleared!"
         elif target == 'check': save_json_locked(FILES['check_txt'], {}); msg = "Tracker targets cleared!"
         elif target == 'active': save_json_locked(FILES['active'], []); save_json_locked(FILES['profile'], {}); distribute_targets(); msg = "Active targets queue cleared!"
@@ -585,5 +589,4 @@ def clear_database_data():
         else: return jsonify({"success": False, "msg": "Unknown database category."}), 400
         return jsonify({"success": True, "msg": msg})
     except Exception as e: return jsonify({"success": False, "msg": str(e)}), 500
-
 # END OF FILE: web/routes.py
