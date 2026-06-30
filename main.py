@@ -29,21 +29,21 @@ async def Target_Loader_Async():
         except: pass
         await asyncio.sleep(5)
 
+# 🚀 FIXED: vv.json থেকে ডিলিট হওয়া বটগুলোকে সাথে সাথে মেমরি থেকে Hard-Stop করা হচ্ছে
 async def Sequential_VV_Watcher_Async():
     """vv.json এর লাইভ চেঞ্জ অনুযায়ী বট এড/রিমুভ করে"""
     while True:
         try:
             current_accounts = data_coordinator.load_data("vv.json", {})
             
-            # Remove deleted accounts
+            # Remove deleted accounts instantly
             for active_uid in list(state.TOTAL_BOTS_DICT.keys()):
                 if active_uid not in current_accounts:
                     print(f" [-] Removing Bot: {active_uid}")
                     bot_obj = state.TOTAL_BOTS_DICT.pop(active_uid)
-                    bot_obj.is_running = False
-                    if bot_obj.writer2:
-                        try: bot_obj.writer2.close()
-                        except: pass
+                    
+                    # 🚀 FIXED: বটের সকেট সংযোগ ও সমস্ত অ্যাসিঙ্ক টাস্ক সাথে সাথে কিল করা হচ্ছে
+                    bot_obj.stop() 
                     state.Remove_Bot_Status(bot_obj.bot_id)
 
             # Add new accounts sequentially
