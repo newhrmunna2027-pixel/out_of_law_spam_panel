@@ -107,15 +107,25 @@ def get_access_metrics():
     if not session.get('logged_in') or not is_creator(session['user']): return jsonify({}), 401
     bot_data = load_json_safe(FILES['bot'], []); vv_data = load_json_safe(FILES['vv'], {})
     api_data = load_json_safe(FILES['api_json'], []); stock_data = load_json_safe(STOCK_FILE, [])
+    
+    # 🚀 ex.json (Fallback expired bots) লোড এবং লেন্থ কাউন্ট
+    ex_data = load_json_safe('ex.json', [])
+    
     members = load_json_safe(FILES['members'], [])
     used_slots = sum(get_user_usable_limit(m['username']) for m in members if not is_owner(m))
     limit_cfg = get_limit_config()
     
     return jsonify({
-        "bot_count": len(bot_data), "vv_count": len(vv_data), "api_count": len(api_data),
-        "stock_count": len(stock_data), "total_slots": len(vv_data) + len(stock_data),
-        "used_slots": used_slots, "global_limit": limit_cfg.get("global_limit", 40),
-        "api_limit": limit_cfg.get("api_limit", 20), "default_line_3": limit_cfg.get("default_line_3", ""),
+        "bot_count": len(bot_data), 
+        "vv_count": len(vv_data), 
+        "api_count": len(api_data),
+        "stock_count": len(stock_data), 
+        "ex_count": len(ex_data), # রেসপন্সে ex_json কাউন্ট পাঠানো হলো
+        "total_slots": len(vv_data) + len(stock_data),
+        "used_slots": used_slots, 
+        "global_limit": limit_cfg.get("global_limit", 40),
+        "api_limit": limit_cfg.get("api_limit", 20), 
+        "default_line_3": limit_cfg.get("default_line_3", ""),
         "allow_user_add_bot": limit_cfg.get("allow_user_add_bot", True)
     })
 
