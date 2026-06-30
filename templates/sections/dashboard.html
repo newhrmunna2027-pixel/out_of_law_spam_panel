@@ -1,32 +1,48 @@
-<!-- START OF FILE templates/sections/dashboard.html -->
-<div class="space-y-4">
-    <!-- Stat Cards Grid -->
-    <div class="grid grid-cols-2 gap-4">
-        <!-- Card 1: Total Targets -->
-        <div class="bg-[#1B1E31]/40 border border-white/5 p-6 rounded-[2rem] text-center shadow-lg relative overflow-hidden glass-card">
-            <i class="fas fa-crosshairs absolute right-[-10px] bottom-[-10px] text-7xl text-white/3"></i>
-            <p class="text-gray-400 text-xs font-black uppercase tracking-widest mb-1.5 relative z-10">Total Targets</p>
-            <h2 id="total-targets" class="text-4xl font-black text-indigo-400 relative z-10 drop-shadow-[0_0_10px_rgba(99,102,241,0.3)]">0</h2>
-        </div>
-        <!-- Card 2: Active Bots -->
-        <div class="bg-[#1B1E31]/40 border border-white/5 p-6 rounded-[2rem] text-center shadow-lg relative overflow-hidden glass-card">
-            <i class="fas fa-robot absolute right-[-10px] bottom-[-10px] text-7xl text-white/3"></i>
-            <p class="text-gray-400 text-xs font-black uppercase tracking-widest mb-1.5 relative z-10">Active Bots</p>
-            <h2 id="total-bots" class="text-4xl font-black text-fuchsia-400 relative z-10 drop-shadow-[0_0_10px_rgba(217,70,239,0.3)]">0</h2>
-        </div>
+<!-- templates/sections/dashboard.html ফাইলটি সম্পূর্ণ প্রতিস্থাপন করুন -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+    <!-- Card 1: Total Targets -->
+    <div class="bg-[#1B1E31]/40 border border-white/5 p-5 rounded-[2rem] text-center shadow-lg relative overflow-hidden glass-card">
+        <i class="fas fa-crosshairs absolute right-[-10px] bottom-[-10px] text-7xl text-white/3"></i>
+        <p class="text-gray-400 text-xs font-black uppercase tracking-widest mb-1.5 relative z-10">Total Targets</p>
+        <h2 id="total-targets" class="text-3xl font-black text-indigo-400 relative z-10 drop-shadow-[0_0_10px_rgba(99,102,241,0.3)]">0</h2>
     </div>
+    <!-- Card 2: Active Attacker Bots -->
+    <div class="bg-[#1B1E31]/40 border border-white/5 p-5 rounded-[2rem] text-center shadow-lg relative overflow-hidden glass-card">
+        <i class="fas fa-bolt absolute right-[-10px] bottom-[-10px] text-7xl text-white/3"></i>
+        <p class="text-gray-400 text-xs font-black uppercase tracking-widest mb-1.5 relative z-10">Attacker Bots</p>
+        <h2 id="total-bots" class="text-3xl font-black text-fuchsia-400 relative z-10 drop-shadow-[0_0_10px_rgba(217,70,239,0.3)]">0</h2>
+    </div>
+    <!-- Card 3: Active Tracker Bots (🚀 NEW CARD) -->
+    <div class="bg-[#1B1E31]/40 border border-white/5 p-5 rounded-[2rem] text-center shadow-lg relative overflow-hidden glass-card">
+        <i class="fas fa-search absolute right-[-10px] bottom-[-10px] text-7xl text-white/3"></i>
+        <p class="text-gray-400 text-xs font-black uppercase tracking-widest mb-1.5 relative z-10">Tracker Bots</p>
+        <h2 id="total-check-bots" class="text-3xl font-black text-cyan-400 relative z-10 drop-shadow-[0_0_10px_rgba(34,211,238,0.3)]">0</h2>
+    </div>
+</div>
 
-    <!-- 🚀 PREMIUM CAPSULE BUTTON FOR TERMINAL CONSOLE -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- Button 1: Active Bots Console -->
     <button onclick="openConsoleModal()" class="w-full bg-[#1B1E31]/30 border border-white/5 hover:border-indigo-500/30 hover:bg-indigo-500/10 p-4 rounded-[1.8rem] flex items-center justify-between text-xs font-black uppercase tracking-widest text-indigo-400 shadow-lg hover:shadow-indigo-500/5 transition duration-300 relative group overflow-hidden">
         <div class="flex items-center gap-3 relative z-10">
             <i class="fas fa-terminal animate-pulse"></i>
-            <span>Monitor Live Bot Console</span>
+            <span>Monitor Attacker Bots Console</span>
         </div>
         <div class="flex items-center gap-1.5 relative z-10">
             <span class="text-[10px] text-gray-500 font-bold uppercase mr-1">View Logs</span>
             <i class="fas fa-chevron-right transition-transform group-hover:translate-x-1"></i>
         </div>
-        <div class="absolute inset-0 bg-gradient-to-r from-indigo-500/0 via-indigo-500/5 to-indigo-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+    </button>
+
+    <!-- Button 2: Check Bots Console (🚀 NEW BUTTON) -->
+    <button onclick="openCheckConsoleModal()" class="w-full bg-[#1B1E31]/30 border border-white/5 hover:border-cyan-500/30 hover:bg-cyan-500/10 p-4 rounded-[1.8rem] flex items-center justify-between text-xs font-black uppercase tracking-widest text-cyan-400 shadow-lg hover:shadow-cyan-500/5 transition duration-300 relative group overflow-hidden">
+        <div class="flex items-center gap-3 relative z-10">
+            <i class="fas fa-terminal animate-pulse"></i>
+            <span>Monitor Tracker Bots Console</span>
+        </div>
+        <div class="flex items-center gap-1.5 relative z-10">
+            <span class="text-[10px] text-gray-500 font-bold uppercase mr-1">View Logs</span>
+            <i class="fas fa-chevron-right transition-transform group-hover:translate-x-1"></i>
+        </div>
     </button>
 </div>
 
@@ -43,6 +59,7 @@
                 
                 document.getElementById('total-targets').innerText = data.total_targets || 0;
                 document.getElementById('total-bots').innerText = data.total_bots || 0;
+                document.getElementById('total-check-bots').innerText = data.total_check_bots || 0; // 🚀 ট্র্যাকার বটের মোট সংখ্যা লোড
                 
                 if(document.getElementById('p-usage')) {
                     document.getElementById('p-usage').innerText = data.user_usage;
@@ -51,16 +68,31 @@
                     document.getElementById('header-added-limit').innerText = data.user_usage;
                 }
 
+                // ১. Attacker Console Render
                 if (window.consoleModalOpen) {
                     let consoleHtml = '';
                     (data.bots || []).forEach(b => {
-                        let sColor = b.status.toLowerCase() === 'offline' ? 'text-rose-500' : 'text-emerald-400';
+                        let sColor = b.status.toLowerCase().includes('online') || b.status.toLowerCase().includes('ready') ? 'text-emerald-400' : 'text-rose-500';
                         consoleHtml += `<div class="py-2 border-b border-white/5 flex flex-wrap items-center justify-between text-xs"><span class="text-gray-500 font-bold">Bot ${b.no} :</span> <span class="text-white font-bold">${b.name}</span> <span class="font-mono text-gray-500">UID ${b.uid}</span> <span class="${sColor} font-black uppercase tracking-wider">${b.status}</span></div>`;
                     });
                     
                     const consoleBox = document.getElementById('console-box');
                     if (consoleBox) {
                         consoleBox.innerHTML = consoleHtml || '<div class="text-gray-600 p-4">No bots online.</div>';
+                    }
+                }
+
+                // ২. Tracker Console Render (🚀 NEW LIVE PARSER)
+                if (window.checkConsoleModalOpen) {
+                    let checkConsoleHtml = '';
+                    (data.check_bots || []).forEach(b => {
+                        let sColor = b.status.toLowerCase().includes('connected') || b.status.toLowerCase().includes('listening') ? 'text-emerald-400' : 'text-rose-500';
+                        checkConsoleHtml += `<div class="py-2 border-b border-white/5 flex flex-wrap items-center justify-between text-xs"><span class="text-gray-500 font-bold">Bot ${b.no} :</span> <span class="text-white font-bold">${b.name}</span> <span class="font-mono text-gray-500">UID ${b.uid}</span> <span class="${sColor} font-black uppercase tracking-wider">${b.status}</span></div>`;
+                    });
+                    
+                    const checkConsoleBox = document.getElementById('check-console-body');
+                    if (checkConsoleBox) {
+                        checkConsoleBox.innerHTML = checkConsoleHtml || '<div class="text-gray-600 p-4">No tracker bots online.</div>';
                     }
                 }
             } catch(e) {
@@ -78,4 +110,3 @@
         setInterval(fetchDashboard, 5000);
     });
 </script>
-<!-- END OF FILE templates/sections/dashboard.html -->
