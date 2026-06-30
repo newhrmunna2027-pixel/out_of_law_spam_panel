@@ -17,12 +17,12 @@ ACTIVE_INFO_BOTS = {}
 # === DYNAMIC FILE WATCHERS ===
 # ==========================================
 async def file_sync_manager():
-    """Handles global data, status updates, and dynamic leader target TTLs"""
+    """ডাটাবেজ কনফিগ, লাইভ স্ট্যাটাস এবং ডাইনামিক টার্গেট TTL হ্যান্ডেল করে"""
     while True:
         try:
             current_time = datetime.now()
             
-            # Clean offline users older than 15 seconds
+            # ১৫ সেকেন্ডের বেশি অফলাইনে থাকা টার্গেটের ডাটা ক্লিন করা
             for t_uid, info in list(state.global_info_data.items()):
                 try:
                     last_update_obj = datetime.strptime(info["last_update"], '%Y-%m-%d %H:%M:%S')
@@ -32,8 +32,10 @@ async def file_sync_manager():
                             state.global_info_data[t_uid]["leader"] = "N/A"
                             state.global_info_data[t_uid]["squad"] = "N/A"
                             state.global_info_data[t_uid]["room_id"] = "N/A"
-                except: pass
+                except Exception: 
+                    pass
 
+            # check.txt একটি "ALWAYS PHYSICAL" ফাইল, এটি সরাসরি ডিস্ক থেকে লোড হবে
             check_data = data_coordinator.load_data("check.txt", {})
             all_valid_uids = []
             if isinstance(check_data, dict):
@@ -41,14 +43,15 @@ async def file_sync_manager():
                     if isinstance(ulist, list): 
                         all_valid_uids.extend([str(u).strip() for u in ulist if str(u).strip()])
             
-            # Remove keys that are no longer tracked
+            # ট্র্যাক লিস্ট থেকে বাদ পড়া ইউজারদের হিস্ট্রি রিমুভ করা
             keys_to_remove = [k for k in state.global_info_data.keys() if k not in all_valid_uids]
             for k in keys_to_remove: 
                 del state.global_info_data[k]
                 
+            # লাইভ স্ট্যাটাস সেভ
             data_coordinator.save_data("info.json", state.global_info_data)
             
-            # Format and save leader history
+            # লিডার ইতিহাস ফরম্যাট করে সেভ করা
             formatted_data = {}
             for t_uid, leaders in state.global_leader_history.items():
                 formatted_data[t_uid] = [f"{l}: {t}" for l, t in leaders.items()]
@@ -59,7 +62,7 @@ async def file_sync_manager():
         await asyncio.sleep(3)
 
 async def dynamic_bot_watcher():
-    """Watches bot.json and spawns StatusBot dynamically"""
+    """bot.json পর্যবেক্ষণ করে এবং ডাইনামিকলি StatusBot প্রসেস নিয়ন্ত্রণ করে"""
     last_state = ""
     while True:
         try:
@@ -69,7 +72,7 @@ async def dynamic_bot_watcher():
             if curr_state != last_state:
                 current_uids = [str(b['uid']) for b in bot_array if 'uid' in b]
                 
-                # Stop removed bots
+                # রিমুভ হয়ে যাওয়া বটগুলোকে থামানো
                 for active_uid in list(ACTIVE_INFO_BOTS.keys()):
                     if active_uid not in current_uids:
                         print(f"[-] Stopping Tracker Bot: {active_uid}")
@@ -77,7 +80,7 @@ async def dynamic_bot_watcher():
                         bot_obj.is_running = False
                         if bot_obj.writer: bot_obj.writer.close()
 
-                # Start new bots
+                # নতুন যুক্ত হওয়া বটগুলো চালু করা
                 for index, b in enumerate(bot_array):
                     uid = str(b.get('uid'))
                     pwd = str(b.get('password'))
