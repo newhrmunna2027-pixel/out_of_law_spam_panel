@@ -593,6 +593,8 @@ def stop_process(proc, script_name):
         proc.terminate()
         proc.wait()
 
+# manager_bot.py ফাইলের একদম শেষের দিকে main() ফাংশনটি খুঁজে নিচের কোডটি দিয়ে প্রতিস্থাপন করুন:
+
 def main():
     global p_app, p_main, p_info
     
@@ -607,6 +609,15 @@ def main():
     time.sleep(1)
 
     save_json(LIVE_FILE, {})
+
+    # 🚀 PRO-PATCH: রেন্ডার রিস্টার্টের সময় ফিজিক্যাল ম্যাপ ফাইলগুলো ক্লাউড ডাটা থেকে রি-বিল্ড করা
+    print("[*] Rebuilding local configuration maps for Render Ephemeral disk...")
+    try:
+        compile_master_bots()
+        distribute_targets()
+        print("[✓] Configuration maps rebuilt successfully on startup.")
+    except Exception as e:
+        print(f"[!] Startup Map Rebuild Warning: {e}")
 
     watcher_thread = Thread(target=system_daemon, daemon=True)
     watcher_thread.start()
