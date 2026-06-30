@@ -95,7 +95,7 @@ def normalize_bot_list(bots_data, key):
                     
     return normalized
 
-# 🚀 STRICT ACTIVE LIMIT RULES ENFORCED DURING COMPILATION:
+# STRICT ACTIVE LIMIT RULES ENFORCED DURING COMPILATION:
 # Active Target Limit 1 = vv.json 2 (Limit * 2)
 # Active Target Limit 3 = bot.json 1 (Ceil(Limit / 3))
 def compile_master_bots():
@@ -162,7 +162,7 @@ def get_user_usable_limit(username):
     
     return self_usable + owner_given_active_limit
 
-# 🚀 STRICT MAPS DISTRIBUTION ENFORCED UNCONDITIONALLY:
+# STRICT MAPS DISTRIBUTION ENFORCED UNCONDITIONALLY:
 # targets.txt -> Exactly 1 target UID per list (number of lists = vv.json attacker bot count)
 # check.txt -> Exactly 3 target UIDs per list (number of lists = bot.json tracker bot count)
 def distribute_targets():
@@ -204,7 +204,7 @@ def distribute_targets():
         if clan_id != "N/A" and clan_id in whitelist.get("guilds", []): continue
         filtered_uids.append(u_str)
 
-    # 🚀 check.txt STRICT DISTRIBUTION (Exactly 3 UIDs per Tracker bot list)
+    # check.txt STRICT DISTRIBUTION (Exactly 3 UIDs per Tracker bot list)
     tracker_count = len(bot_data)
     check_distribution = {str(i): [] for i in range(1, tracker_count + 1)}
     
@@ -218,7 +218,7 @@ def distribute_targets():
 
     save_json(CHECK_FILE, check_distribution)
 
-    # 🚀 targets.txt STRICT DISTRIBUTION (Exactly 1 UID per Attacker bot list)
+    # targets.txt STRICT DISTRIBUTION (Exactly 1 UID per Attacker bot list)
     attacker_count = len(vv_data)
     targets_distribution = {str(i): [] for i in range(1, attacker_count + 1)}
     
@@ -232,7 +232,7 @@ def distribute_targets():
 
     save_json(TARGETS_TXT, targets_distribution)
 
-# 🚀 CIRCULAR BOT LIFECYCLE AND INTER-FILE ROUTING GATEWAY:
+# CIRCULAR BOT LIFECYCLE AND INTER-FILE ROUTING GATEWAY:
 # Sourcing rule:
 # - 'vv' primarily pulls from stock.json. If empty, falls back to ex.json.
 # - 'bot' or 'api' primarily pulls from ex.json. If empty, falls back to stock.json.
@@ -262,7 +262,7 @@ def pull_account_for_type(target_type):
             
     return pulled
 
-# 🚀 ROTATION IMPLEMENTATION WITH STRICT ex.json TRANSFER
+# ROTATION IMPLEMENTATION WITH STRICT ex.json TRANSFER
 def handle_vv_rotations():
     vv_bots = load_json(VV_FILE, {}) 
     vv_timers = load_json(VV_TIMERS_FILE, {})
@@ -343,9 +343,9 @@ def handle_vv_rotations():
     elif changed:
         save_json(VV_TIMERS_FILE, vv_timers)
 
-# 🚀 AUTO DISTRIBUTE AND MATH SCALING ENGINE:
-# Attack limit 1 = vv.json 2
-# Attack limit 3 = bot.json 1
+# AUTO DISTRIBUTE AND MATH SCALING ENGINE:
+# Attack limit 1 = vv.json 2 (At least 2 attackers)
+# Attack limit 3 = bot.json 1 (At least 1 tracker)
 # Active limit 1000 = api.json 20 (Ratio of Active Limit / 50)
 def auto_distribute_bots():
     limit_cfg = load_json(LIMIT_FILE, {"global_limit": 40, "api_limit": 2})
@@ -362,7 +362,7 @@ def auto_distribute_bots():
     
     changed = False
 
-    # 1. Scale API Bots
+    # 1. Scale API Bots Up/Down based on config
     if len(api_bots) < api_limit:
         while len(api_bots) < api_limit:
             new_acc = pull_account_for_type('api')
@@ -389,22 +389,60 @@ def auto_distribute_bots():
                 total_active_uids.append(t['uid'])
 
     # 🚀 CALCULATE THE STRICT BOT TARGET COUNT LIMITS:
-    # 1 target = 2 vv bots
-    needed_attackers = len(total_active_uids) * 2
-    if needed_attackers < 2: 
-        needed_attackers = 2 # Keep default active minimum pairs
-
-    # 3 targets = 1 tracker bot (Ceil division)
-    needed_trackers = math.ceil(len(total_active_uids) / 3)
-    if needed_trackers < 1: 
-        needed_trackers = 1 # Keep default active minimum trackers
+    # 🚀 FIXED: Minimum limit is hard-baseline to 2 attackers and 1 tracker even if active targets = 0
+    needed_attackers = max(len(total_active_uids) * 2, 2)
+    needed_trackers = max(math.ceil(len(total_active_uids) / 3), 1)
 
     max_vv_slots = global_limit * 2
     max_tracker_slots = math.ceil(global_limit / 3)
 
     creator_data = None
 
-    # Scale Attackers (vv.json)
+    # 🚀 DYNAMIC SCALE DOWN IMPLEMENTATION WITH BASELINE THRESHOLDS:
+    if len(vv_bots) > needed_attackers:
+        print(f"[-] Scaling down attackers. Excess: {len(vv_bots) - needed_attackers} bots.")
+        if not creator_data: creator_data = get_user_bots("creator")
+        vvs = normalize_bot_list(creator_data, 'vv')
+        ex_bots = load_json(EX_FILE, [])
+        
+        while len(vv_bots) > needed_attackers:
+            pop_uid = list(vv_bots.keys())[-1]
+            pop_pwd = vv_bots.pop(pop_uid)
+            
+            # Remove from creator list
+            vvs = [v for v in vvs if str(v.get('uid')) != pop_uid]
+            
+            # Recycled to ex.json
+            if not any(item.get('uid') == pop_uid for item in ex_bots if isinstance(item, dict)):
+                ex_bots.append({"uid": pop_uid, "password": pop_pwd})
+            changed = True
+            
+        creator_data['vv'] = vvs
+        save_json(EX_FILE, ex_bots)
+
+    if len(bot_bots) > needed_trackers:
+        print(f"[-] Scaling down trackers. Excess: {len(bot_bots) - needed_trackers} bots.")
+        if not creator_data: creator_data = get_user_bots("creator")
+        bots = normalize_bot_list(creator_data, 'bot')
+        ex_bots = load_json(EX_FILE, [])
+        
+        while len(bot_bots) > needed_trackers:
+            pop_bot = bot_bots.pop()
+            pop_uid = str(pop_bot.get('uid'))
+            pop_pwd = str(pop_bot.get('password'))
+            
+            # Remove from creator list
+            bots = [b for b in bots if str(b.get('uid')) != pop_uid]
+            
+            # Recycled to ex.json
+            if not any(item.get('uid') == pop_uid for item in ex_bots if isinstance(item, dict)):
+                ex_bots.append({"uid": pop_uid, "password": pop_pwd})
+            changed = True
+            
+        creator_data['bot'] = bots
+        save_json(EX_FILE, ex_bots)
+
+    # Scale Attackers Up (vv.json)
     while len(vv_bots) < needed_attackers and len(vv_bots) < max_vv_slots:
         new_acc = pull_account_for_type('vv')
         if new_acc:
@@ -418,7 +456,7 @@ def auto_distribute_bots():
         else:
             break
             
-    # Scale Trackers (bot.json)
+    # Scale Trackers Up (bot.json)
     while len(bot_bots) < needed_trackers and len(bot_bots) < max_tracker_slots:
         new_acc = pull_account_for_type('bot')
         if new_acc:
