@@ -10,8 +10,6 @@ import sqlite3
 # MONGODB INTEGRATION & TERMUX DNS FIX
 # ==========================================
 try:
-    # 🚀 FIX: Apply the DNS resolver override ONLY on Termux/Android environments.
-    # On Render / cloud Linux hosts, this override breaks local virtual DNS resolution (Atlas SRV).
     IS_ANDROID = "ANDROID_ROOT" in os.environ or "TERMUX_VERSION" in os.environ
     if IS_ANDROID:
         try:
@@ -127,7 +125,12 @@ def parse_expire_time(expire_at):
 # ==========================================
 # UNIVERSAL DATA LOADER (LOCAL-FIRST)
 # ==========================================
-def load_data(filepath, default, bypass_mongo=True):
+# 🚀 FIXED: Dynamic bypass_mongo resolver to avoid concurrent SQLite database locks
+def load_data(filepath, default, bypass_mongo=None):
+    global MONGO_CONNECTED
+    if bypass_mongo is None:
+        bypass_mongo = not MONGO_CONNECTED
+
     normalized_path = filepath.replace('\\', '/').strip()
     filename = os.path.basename(normalized_path)
     
@@ -164,13 +167,11 @@ def load_data(filepath, default, bypass_mongo=True):
                 col_name = filename.split('.')[0]
                 rows = list(mongo_db[col_name].find({}, {"_id": 0}))
                 return rows if rows else default
-            # Support dynamically generated users configs in MongoDB
             elif normalized_path.startswith('users/'):
                 col_name = "user_configs"
                 doc_id = filename.split('.')[0]
                 row = mongo_db[col_name].find_one({"_id": doc_id}, {"_id": 0})
                 return row.get("data", default) if row else default
-            # Fallback config handler for unmatched JSON configuration files in Mongo
             elif filename.endswith('.json') or filename.endswith('.txt'):
                 row = mongo_db['configs'].find_one({"_id": filename}, {"_id": 0})
                 return row.get("val", default) if row else default
@@ -218,7 +219,12 @@ def load_data(filepath, default, bypass_mongo=True):
 # ==========================================
 # UNIVERSAL DATA SAVER
 # ==========================================
-def save_data(filepath, data, sync_mongo=True):
+# 🚀 FIXED: Dynamic sync_mongo resolver based on active MongoDB connectivity
+def save_data(filepath, data, sync_mongo=None):
+    global MONGO_CONNECTED
+    if sync_mongo is None:
+        sync_mongo = MONGO_CONNECTED
+
     normalized_path = filepath.replace('\\', '/').strip()
     filename = os.path.basename(normalized_path)
     
@@ -281,7 +287,6 @@ def save_data(filepath, data, sync_mongo=True):
                 if data: 
                     mongo_db['members'].insert_many([dict(x) for x in data])
                 
-                # If members are purged back to default creator, drop the user configurations collection entirely
                 if len(data) == 1 and data[0].get('username') == 'creator':
                     print("[✓] Members Purged! Dropping orphaned MongoDB 'user_configs' dynamically...")
                     mongo_db['user_configs'].delete_many({})
