@@ -1,5 +1,5 @@
 {
-    "global_limit": 40,
+    "global_limit": 200,
     "api_limit": 20,
     "default_line_3": "TIKTOK [FF00FF]\u2192OUT OF LAW",
     "allow_user_add_bot": false
