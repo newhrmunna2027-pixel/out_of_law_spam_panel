@@ -24,7 +24,7 @@ class FF_CLient:
         self.reader2 = None
         self.read_task = None
         self.attack_task = None
-        self.start_task = None  # 🚀 FIXED: Added reference pointer to cancel main loop on stop
+        self.start_task = None  
         self.active_spam_tasks = []
         self.is_running = True
         self.region = "BD" 
@@ -115,7 +115,7 @@ class FF_CLient:
         except Exception:
             self.writer2 = None
 
-    # 🚀 FIXED: Dynamic task terminator to kill connection and free RAM instantly
+    # Dynamic task terminator to kill connection and free RAM instantly
     def stop(self):
         self.is_running = False
         
@@ -173,13 +173,17 @@ class FF_CLient:
         except Exception: 
             self.writer2 = None
 
+    # 🚀 FIXED: Garena active state checker to prevent stale spams on empty list items
     async def Self_Driving_Attack(self, bot_uid, region, key, iv):
         while self.is_running:
             try:
                 if not self.writer2: 
                     await asyncio.sleep(1); continue 
 
-                if not state.ATTACK_TARGETS_DICT:
+                # ডিকশনারি সেশন চেক করা হচ্ছে (টার্গেট লিস্ট এম্পটি বা ডিলিট হলে লুপটি সাথে সাথে Idle স্টেটে গিয়ে স্লিপ করবে)
+                has_valid_targets = any(len(targets) > 0 for targets in state.ATTACK_TARGETS_DICT.values()) if state.ATTACK_TARGETS_DICT else False
+                
+                if not has_valid_targets:
                     state.Update_Bot_Status(self.bot_id, "💤 Idle (No Targets)", bot_uid, self.nickname, self.vv_key)
                     await asyncio.sleep(2); continue
 
@@ -253,7 +257,6 @@ class FF_CLient:
                     zeros = "0000000" if len(enc_acc) == 9 else "00000000"
                     self.AutH_ToKen = f"0115{zeros}{enc_acc}{DecodE_HeX(ts)}00000{hex(len(token_enc)//2)[2:]}{token_enc}"
                     
-                    # 🚀 FIXED: Saved reference pointer of connection task to allow force shutdowns
                     self.start_task = asyncio.create_task(self.STarT(self.AutH_ToKen, ip, port, ip2, port2, key, iv, bot_uid))
                     return True
             await asyncio.sleep(2)
