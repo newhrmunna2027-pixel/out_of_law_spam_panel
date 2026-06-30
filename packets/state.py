@@ -51,4 +51,30 @@ def Live_Status_Writer():
         except: pass
         time.sleep(10)
 
+
+# packets/state.py ফাইলের একদম শেষে নিচের অংশটুকু যুক্ত করুন:
+
+CHECK_BOT_STATUS_DATA = {}
+CHECK_STATUS_FILE = "check_bot_status.json"
+
+def Update_Check_Bot_Status(bot_id, status_msg, uid="Unknown", nickname="Unknown", key_val="Unknown"):
+    with STATUS_LOCK:
+        CHECK_BOT_STATUS_DATA[str(bot_id)] = {
+            "Id": key_val, "Name": nickname, "Status": status_msg, 
+            "Timestamp": dt_mod.datetime.now().strftime("%H:%M:%S"), "Game uid": uid
+        }
+        try: 
+            data_coordinator.save_data(CHECK_STATUS_FILE, CHECK_BOT_STATUS_DATA.copy())
+        except Exception: 
+            pass
+
+def Remove_Check_Bot_Status(bot_id):
+    with STATUS_LOCK:
+        if str(bot_id) in CHECK_BOT_STATUS_DATA:
+            del CHECK_BOT_STATUS_DATA[str(bot_id)]
+        try: 
+            data_coordinator.save_data(CHECK_STATUS_FILE, CHECK_BOT_STATUS_DATA.copy())
+        except Exception: 
+            pass
+
 # END OF FILE: packets/state.py
