@@ -144,10 +144,17 @@ class FF_CLient:
 
     # packets/attack_client.py ফাইলের জন্য সংশোধিত অংশ:
 
+    # packets/attack_client.py ফাইলের জন্য সংশোধিত Spam_Single_Target ফাংশন:
+
     async def Spam_Single_Target(self, target, bot_uid, region, key, iv):
         try:
             if not self.writer2 or self.writer2.is_closing() or not self.is_running:
                 return
+
+            # 🚀 NEW: টাস্ক শুরুর ঠিক পূর্বে স্বয়ংক্রিয়ভাবে কাস্টম রুম তৈরি করার প্যাকেট ফায়ার করা হচ্ছে
+            room_create_pkt = Open_Room_Packet(key, iv)
+            await self.safe_socket_write(room_create_pkt)
+            await asyncio.sleep(0.4) # রুম স্টেবিলাইজ করার জন্য সাময়িক ডিলে
 
             room_inv_pkt = Room_Invite_Packet(target, key, iv)
             fake_join_pkt = Fake_Profile_Join(target, region, key, iv)
