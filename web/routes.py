@@ -308,20 +308,26 @@ def get_dashboard():
     if not session.get('logged_in'): return jsonify({"error": "Unauthorized"}), 401
     check_expired_targets()
     active_targets = load_json_safe(FILES['active'], [])
+    
+    # ১. লাইভ অ্যাটাকার বট স্ট্যাটাস (vv.json)
     live_bots = load_json_safe(FILES['live'], {})
     bots_list = [{"no": i+1, "name": d.get("Name", "Unknown"), "uid": d.get("Game uid", "N/A"), "status": d.get("Status", "Offline")} for i, (b, d) in enumerate(live_bots.items())]
+    
+    # ২. লাইভ ট্র্যাকার বট স্ট্যাটাস (check_bot_status.json - ALWAYS PHYSICAL)
+    check_live_bots = load_json_safe('check_bot_status.json', {})
+    check_bots_list = [{"no": i+1, "name": d.get("Name", "Unknown"), "uid": d.get("Game uid", "N/A"), "status": d.get("Status", "Offline")} for i, (b, d) in enumerate(check_live_bots.items())]
+    
     user = session['user']
     usage = sum(1 for t in active_targets if isinstance(t, dict) and t.get('addedByUsername') == user['username']) if not is_owner(user) else len(active_targets)
-    return jsonify({"total_targets": len(active_targets), "total_bots": len(bots_list), "bots": bots_list, "user_usage": usage})
-
-@app.route('/api/user_stats', methods=['GET'])
-def get_user_stats():
-    if not session.get('logged_in'): return jsonify({}), 401
-    members = load_json_safe(FILES['members'], []); active_targets = load_json_safe(FILES['active'], [])
-    stats = {}
-    for m in members:
-        stats[m['username']] = {"name": m.get('name', m['username']), "limit": m.get('limit', 0), "active_limit": m.get('active_limit', 0), "role": m.get('role', 'admin'), "active": sum(1 for t in active_targets if isinstance(t, dict) and t.get('addedByUsername') == m['username'])}
-    return jsonify(stats)
+    
+    return jsonify({
+        "total_targets": len(active_targets), 
+        "total_bots": len(bots_list), 
+        "bots": bots_list, 
+        "total_check_bots": len(check_bots_list), # ট্র্যাকার বটের মোট সংখ্যা
+        "check_bots": check_bots_list,             # ট্র্যাকার বটের লাইভ তালিকা
+        "user_usage": usage
+    })
 
 @app.route('/api/targets', methods=['GET'])
 def get_targets_panel():
@@ -536,15 +542,33 @@ def get_data():
 @app.route('/api/spam', methods=['GET'])
 def get_spam():
     if not session.get('logged_in'): return jsonify({}), 401
-    targets = load_json_safe(FILES['targets_txt'], {}); active = {t['uid']: t for t in load_json_safe(FILES['active'], []) if isinstance(t, dict)}
-    info = load_json_safe(FILES['info'], {}); l_to_t = {}
+    
+    # targets.txt এবং check.txt উভয় ডিস্ট্রিবিউশন ডেটা সিঙ্ক করা হচ্ছে
+    targets = load_json_safe(FILES['targets_txt'], {})
+    checks = load_json_safe(FILES['check_txt'], {})
+    
+    active = {t['uid']: t for t in load_json_safe(FILES['active'], []) if isinstance(t, dict)}
+    info = load_json_safe(FILES['info'], {})
+    
+    l_to_t = {}
     for t_uid, d in info.items():
-        if isinstance(d, dict) and d.get('leader') and d.get('leader') != "N/A": l_to_t[d.get('leader')] = t_uid
-    result = {}
+        if isinstance(d, dict) and d.get('leader') and d.get('leader') != "N/A": 
+            l_to_t[d.get('leader')] = t_uid
+            
+    spam_result = {}
     for bot, uids in targets.items():
         if not isinstance(uids, list): continue
-        result[bot] = [{"uid": u, "source": "Added By Owner (Target)" if u in active else f"Leader of {l_to_t[u]}" if u in l_to_t else "Unknown"} for u in uids]
-    return jsonify(result)
+        spam_result[bot] = [{"uid": u, "source": "Added By Owner (Target)" if u in active else f"Leader of {l_to_t[u]}" if u in l_to_t else "Unknown"} for u in uids]
+        
+    check_result = {}
+    for bot, uids in checks.items():
+        if not isinstance(uids, list): continue
+        check_result[bot] = [{"uid": u, "source": "Added By Owner (Target)" if u in active else f"Leader of {l_to_t[u]}" if u in l_to_t else "Unknown"} for u in uids]
+        
+    return jsonify({
+        "spam": spam_result, 
+        "check": check_result
+    })
 
 @app.route('/api/whitelist', methods=['GET'])
 def get_whitelist():
