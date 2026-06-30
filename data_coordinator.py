@@ -35,7 +35,14 @@ MONGO_SYNC_ENABLED = os.environ.get("MONGO_SYNC_ENABLED", "FALSE") == "TRUE"
 RUN_STARTUP_SYNC = os.environ.get("RUN_STARTUP_SYNC", "FALSE") == "TRUE"
 
 # স্পেশাল রুল: এই ফাইলগুলো সর্বদা ফিজিক্যাল ফাইল হিসেবে কাজ করবে
-ALWAYS_PHYSICAL_FILES = ['bots_live_status.json', 'check.txt', 'targets.txt', 'vv_timers.json', 'maintenance.json']
+ALWAYS_PHYSICAL_FILES = [
+    'bots_live_status.json', 
+    'check_bot_status.json', # 🚀 NEW: ফিজিক্যাল ফাইল হিসেবে নিশ্চিত করা হলো
+    'check.txt', 
+    'targets.txt', 
+    'vv_timers.json', 
+    'maintenance.json'
+]
 
 MONGO_URI = None
 MONGO_DB_NAME = None
