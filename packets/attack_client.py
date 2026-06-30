@@ -24,6 +24,7 @@ class FF_CLient:
         self.reader2 = None
         self.read_task = None
         self.attack_task = None
+        self.start_task = None  # 🚀 FIXED: Added reference pointer to cancel main loop on stop
         self.active_spam_tasks = []
         self.is_running = True
         self.region = "BD" 
@@ -45,7 +46,7 @@ class FF_CLient:
         except Exception: 
             pass
 
-    # 🚀 Bot state sequence (Create Team ONCE -> Create Room ONCE on connect)
+    # Bot state sequence (Create Team -> Create Room ONLY ONCE on connect)
     async def OnLinE(self, host2, port2, tok, bot_uid, key, iv):
         disconnect_count = 0
         while self.is_running:
@@ -58,7 +59,7 @@ class FF_CLient:
                 await self.writer2.drain()
                 await asyncio.sleep(1.0) 
                 
-                # 🚀 2. Strict One-Time State Initialization on connect
+                # 2. Strict One-Time State Initialization on connect
                 try:
                     # ১. প্রথমে স্কোয়াড লবি তৈরি করা (কানেক্ট হওয়ার পর শুধুমাত্র একবার)
                     team_pkts = Build_Initial_Team_Packet(bot_uid, self.region, key, iv, random.choice([5, 6]))
@@ -114,7 +115,34 @@ class FF_CLient:
         except Exception:
             self.writer2 = None
 
-    # 🚀 FIXED: লুপের ভেতরে কোনো নতুন টিম বা রুম তৈরি হবে না, শুধুমাত্র ডিরেক্ট ইনভাইট ও ফেক জয়েন পাঠানো হবে
+    # 🚀 FIXED: Dynamic task terminator to kill connection and free RAM instantly
+    def stop(self):
+        self.is_running = False
+        
+        # ১. সকেট রাইটার অবিলম্বে বন্ধ করা হচ্ছে
+        if self.writer2:
+            try: self.writer2.close()
+            except: pass
+            self.writer2 = None
+            
+        # ২. ব্যাকগ্রাউন্ড সচল থাকা সমস্ত অ্যাসিঙ্ক্রোনাস টাস্ক ক্যানসেল করা হচ্ছে
+        if self.read_task and not self.read_task.done():
+            self.read_task.cancel()
+            
+        if self.attack_task and not self.attack_task.done():
+            self.attack_task.cancel()
+            
+        if self.start_task and not self.start_task.done():
+            self.start_task.cancel()
+            
+        # ৩. একটিভ স্প্যামিং সাব-টাস্কগুলো কিল করা হচ্ছে
+        for task in self.active_spam_tasks:
+            if not task.done():
+                task.cancel()
+                
+        print(f" [Bot #{self.bot_id}] 🛑 Hard Stopped and Disconnected successfully.")
+
+    # Garena stateless packet sequences
     async def Spam_Single_Target(self, target, bot_uid, region, key, iv):
         try:
             if not self.writer2 or self.writer2.is_closing() or not self.is_running:
@@ -124,7 +152,7 @@ class FF_CLient:
             fake_join_pkt = Fake_Profile_Join(target, region, key, iv)
             team_invite_pkt = Simple_Invite_Packet(target, region, key, iv)
 
-            # ডিরেক্ট স্প্যাম সিকুয়েন্স (বাইডেন্টিক্যাল ও কন্টিনিউয়াস প্রোটোকল)
+            # High-performance 2.5-second sequence with stateless packets
             await self.safe_socket_write(room_inv_pkt)
             await asyncio.sleep(0.5)
             
@@ -225,7 +253,8 @@ class FF_CLient:
                     zeros = "0000000" if len(enc_acc) == 9 else "00000000"
                     self.AutH_ToKen = f"0115{zeros}{enc_acc}{DecodE_HeX(ts)}00000{hex(len(token_enc)//2)[2:]}{token_enc}"
                     
-                    asyncio.create_task(self.STarT(self.AutH_ToKen, ip, port, ip2, port2, key, iv, bot_uid))
+                    # 🚀 FIXED: Saved reference pointer of connection task to allow force shutdowns
+                    self.start_task = asyncio.create_task(self.STarT(self.AutH_ToKen, ip, port, ip2, port2, key, iv, bot_uid))
                     return True
             await asyncio.sleep(2)
             
