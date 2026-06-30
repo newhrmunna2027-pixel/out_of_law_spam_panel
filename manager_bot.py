@@ -49,12 +49,10 @@ VV_TIMERS_FILE = 'vv_timers.json'
 
 # Helper methods respecting global MongoDB dynamic configs
 def load_json(path, default):
-    sync_enabled = os.environ.get("MONGO_SYNC_ENABLED") == "TRUE"
-    return data_coordinator.load_data(path, default, bypass_mongo=not sync_enabled)
+    return data_coordinator.load_data(path, default)
 
 def save_json(path, data):
-    sync_enabled = os.environ.get("MONGO_SYNC_ENABLED") == "TRUE"
-    data_coordinator.save_data(path, data, sync_mongo=sync_enabled)
+    data_coordinator.save_data(path, data)
 
 def get_user_bots(username):
     path = os.path.join(USERS_DIR, f"{username}.json")
@@ -388,10 +386,26 @@ def auto_distribute_bots():
             if i < usable_limit:
                 total_active_uids.append(t['uid'])
 
+    # Filter whitelisted targets
+    whitelist = load_json('whitelist.json', {"players": [], "guilds": []})
+    profiles = load_json('profile.json', {})
+    filtered_uids = []
+    
+    for u in total_active_uids:
+        u_str = str(u).strip()
+        if u_str in whitelist.get("players", []): continue
+        clan_id = str(profiles.get(u_str, {}).get("clanBasicInfo", {}).get("clanId", "N/A"))
+        if clan_id != "N/A" and clan_id in whitelist.get("guilds", []): continue
+        filtered_uids.append(u_str)
+
     # 🚀 CALCULATE THE STRICT BOT TARGET COUNT LIMITS:
-    # 🚀 FIXED: Minimum limit is hard-baseline to 2 attackers and 1 tracker even if active targets = 0
-    needed_attackers = max(len(total_active_uids) * 2, 2)
-    needed_trackers = max(math.ceil(len(total_active_uids) / 3), 1)
+    # 🚀 FIXED: If no active targets are present, scale needed bots strictly to 0
+    if len(filtered_uids) == 0:
+        needed_attackers = 0
+        needed_trackers = 0
+    else:
+        needed_attackers = max(len(filtered_uids) * 2, 2)
+        needed_trackers = max(math.ceil(len(filtered_uids) / 3), 1)
 
     max_vv_slots = global_limit * 2
     max_tracker_slots = math.ceil(global_limit / 3)
