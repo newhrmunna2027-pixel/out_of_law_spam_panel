@@ -191,10 +191,9 @@
             {% include 'sections/login.html' %}
         </div>
     {% else %}
-        <!-- 🚀 CAPSULED FLOATING TOP HEADER (🚀 Redesigned with premium neon border & glowing shadows) -->
+        <!-- 🚀 CAPSULED FLOATING TOP HEADER -->
         <header class="mx-4 mt-4 relative z-50 bg-[#161827]/75 backdrop-blur-xl border border-indigo-500/20 text-white flex justify-between items-center px-6 py-4 rounded-[1.8rem] shadow-[0_15px_40px_rgba(99,102,241,0.15)]">
             <div class="flex items-center gap-4">
-                <!-- 🚀 FIXED: toggleSidebar() called without parameters to enable auto toggling -->
                 <button onclick="toggleSidebar()" class="p-3 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-2xl hover:scale-105 active:scale-95 transition border border-indigo-500/20 shadow-lg">
                     <i class="fas fa-bars text-lg"></i>
                 </button>
@@ -240,7 +239,11 @@
                 <div class="h-px bg-white/5 my-1.5"></div>
                 <a onclick="switchTab('info')" class="sidebar-link cursor-pointer text-gray-300 p-3.5 rounded-2xl hover:bg-indigo-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-info-circle w-5"></i> Live Status Tracker</a>
                 <a onclick="switchTab('data')" class="sidebar-link cursor-pointer text-gray-300 p-3.5 rounded-2xl hover:bg-indigo-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-database w-5"></i> Leader Records</a>
+                
+                <!-- 🚀 Separated Menu Tabs (Attack Panel & Check Panel) -->
                 <a onclick="switchTab('spam')" class="sidebar-link cursor-pointer text-gray-300 p-3.5 rounded-2xl hover:bg-indigo-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-bolt w-5"></i> Attack Panel</a>
+                <a onclick="switchTab('check_panel')" class="sidebar-link cursor-pointer text-gray-300 p-3.5 rounded-2xl hover:bg-indigo-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-search w-5"></i> Check Panel</a>
+                
                 <a onclick="switchTab('tutorial')" class="sidebar-link cursor-pointer text-gray-300 p-3.5 rounded-2xl hover:bg-indigo-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-book w-5"></i> Tutorials Guide</a>
                 {% if current_user.role in ['owner', 'creator'] %}
                     <div class="h-px bg-white/5 my-1.5"></div>
@@ -263,7 +266,7 @@
 
         <div id="sidebar-overlay" onclick="toggleSidebar(false)" class="fixed inset-0 bg-black/60 z-30 hidden backdrop-blur-xs transition-opacity duration-300"></div>
 
-        <!-- MAIN LAYOUT CONTAINERS (🚀 z-10 removed to allow child fixed modals to layer properly globally) -->
+        <!-- MAIN LAYOUT CONTAINERS -->
         <main class="p-4 md:p-6 max-w-5xl mx-auto w-full flex-1 relative">
             <div id="dashboard" class="tab-content active">
                 <div id="boundary-dashboard">{% include 'sections/dashboard.html' ignore missing %}</div>
@@ -283,6 +286,12 @@
             <div id="spam" class="tab-content">
                 <div id="boundary-spam">{% include 'sections/spam.html' ignore missing %}</div>
             </div>
+            
+            <!-- 🚀 NEW: Check Panel View Tab Container -->
+            <div id="check_panel" class="tab-content">
+                <div id="boundary-check-panel">{% include 'sections/check_panel.html' ignore missing %}</div>
+            </div>
+            
             <div id="tutorial" class="tab-content">
                 <div id="boundary-tutorial">{% include 'sections/tutorial.html' ignore missing %}</div>
             </div>
@@ -313,7 +322,6 @@
                 <p class="text-sm text-gray-400 font-bold mb-8">This action will stop the protocol on this player.</p>
                 <div class="flex gap-4">
                     <button onclick="const dm = document.getElementById('delete-modal'); if(dm){ dm.classList.add('hidden'); dm.classList.remove('flex'); }" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-2xl transition">Cancel</button>
-                    <!-- 🚀 FIXED: Global method pointed directly on window scope to guarantee execution across all platforms -->
                     <button onclick="window.deleteTarget()" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-2xl shadow-lg transition">Delete</button>
                 </div>
             </div>
@@ -354,7 +362,6 @@
 
     <!-- UTILITY CONTROL ENGINE -->
     <script>
-        // 🚀 FIXED: toggleSidebar() rewritten to support click-outside and auto toggling flawlessly
         function toggleSidebar(open) {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebar-overlay');
