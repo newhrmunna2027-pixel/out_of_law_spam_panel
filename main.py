@@ -15,12 +15,12 @@ from packets.central_login import get_http_session
 # ==========================================
 # === DYNAMIC FILE WATCHERS ===
 # ==========================================
-# 🚀 FIXED: Added error logger and conflict handler to ensure targets.txt resets are read in real-time
 async def Target_Loader_Async():
-    """Targets.txt থেকে লাইভ ডেটা গ্লোবাল স্টেটে সেভ করে"""
+    """targets.txt (ALWAYS PHYSICAL) থেকে লাইভ ডাটা গ্লোবাল স্টেটে সেভ করে"""
     prev_targets = ""
     while True:
         try:
+            # targets.txt একটি শারীরিক ফাইল হওয়ায় সরাসরি ডিস্ক থেকে রিড হবে
             data = data_coordinator.load_data("targets.txt", {})
             curr = json.dumps(data, sort_keys=True)
             if curr != prev_targets:
@@ -32,11 +32,13 @@ async def Target_Loader_Async():
         await asyncio.sleep(5)
 
 async def Sequential_VV_Watcher_Async():
-    global TOTAL_BOTS_DICT
+    """vv.json পর্যবেক্ষণ করে এবং ডাইনামিকলি আক্রমণকারী বটগুলো সেশন আপ/ডাউন করে"""
     while True:
         try:
+            # vv.json ডাটা মোড ও মঙ্গোডিবি সেটিংস অনুযায়ী সিঙ্কড ডেটা সরবরাহ করবে
             current_accounts = data_coordinator.load_data("vv.json", {})
             
+            # মেম্বার বা ক্লাউড থেকে রিমুভ হয়ে যাওয়া বটগুলোকে থামানো
             for active_uid in list(state.TOTAL_BOTS_DICT.keys()):
                 if active_uid not in current_accounts:
                     print(f" [-] Removing Bot: {active_uid}")
@@ -49,6 +51,7 @@ async def Sequential_VV_Watcher_Async():
                 if u not in state.TOTAL_BOTS_DICT and u not in state.PENDING_LOGINS:
                     to_login.append(u)
 
+            # নতুন আসা বটগুলোকে সিকোয়েন্সিয়ালি লগইন করা
             for u in to_login:
                 state.PENDING_LOGINS.add(u)
                 p = current_accounts[u]
