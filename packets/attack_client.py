@@ -146,37 +146,38 @@ class FF_CLient:
 
     # packets/attack_client.py ফাইলের জন্য সংশোধিত Spam_Single_Target ফাংশন:
 
+    # packets/attack_client.py ফাইলের Spam_Single_Target ফাংশনটি নিচে প্রদর্শিত কোড দিয়ে প্রতিস্থাপন করুন:
+
     async def Spam_Single_Target(self, target, bot_uid, region, key, iv):
         try:
             if not self.writer2 or self.writer2.is_closing() or not self.is_running:
                 return
 
-            # 🚀 NEW: টাস্ক শুরুর ঠিক পূর্বে স্বয়ংক্রিয়ভাবে কাস্টম রুম তৈরি করার প্যাকেট ফায়ার করা হচ্ছে
             room_create_pkt = Open_Room_Packet(key, iv)
-            await self.safe_socket_write(room_create_pkt)
-            await asyncio.sleep(0.4) # রুম স্টেবিলাইজ করার জন্য সাময়িক ডিলে
-
             room_inv_pkt = Room_Invite_Packet(target, key, iv)
             fake_join_pkt = Fake_Profile_Join(target, region, key, iv)
             team_invite_pkt = Simple_Invite_Packet(target, region, key, iv)
 
             # High-performance packet bursts (x3) with 0.4s delays
-            # 1. Room Invite x3
+            
+            # ১. প্রথমে রুম ক্রিয়েট এবং সাথে সাথেই রুম ইনভাইট x3 ফায়ার
+            await self.safe_socket_write(room_create_pkt)
             for _ in range(3):
                 await self.safe_socket_write(room_inv_pkt)
             await asyncio.sleep(0.4)
             
-            # 2. Fake Profile Join x3
+            # ২. ফেক প্রোফাইল জয়েন x3
             for _ in range(3):
                 await self.safe_socket_write(fake_join_pkt)
             await asyncio.sleep(0.4)
 
-            # 3. Room Invite x3
+            # ৩. দ্বিতীয়বার রুম ইনভাইটের ঠিক পূর্বে পুনরায় রুম ক্রিয়েট এবং রুম ইনভাইট x3 ফায়ার
+            await self.safe_socket_write(room_create_pkt)
             for _ in range(3):
                 await self.safe_socket_write(room_inv_pkt)
             await asyncio.sleep(0.4)
             
-            # 4. Team Invite x3
+            # ৪. টিম ইনভাইট x3
             for _ in range(3):
                 await self.safe_socket_write(team_invite_pkt)
 
