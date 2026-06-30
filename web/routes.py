@@ -1,6 +1,7 @@
 # START OF FILE: web/routes.py
 from flask import render_template, request, session, redirect, url_for, jsonify
 import urllib.parse, math, time, os
+import data_coordinator
 
 from web.utils import app, api_limiter, cached_endpoint, run_async, load_json_safe, save_json_locked, is_owner, is_creator, get_limit_config, get_user_bots, save_user_bots, normalize_bot_list, normalize_failed_bots, add_target_log, target_add_lock, add_history
 from web.config import FILES, STOCK_FILE, USERS_DIR, LIMIT_FILE
@@ -43,7 +44,7 @@ def index():
     return render_template('index.html', show_login=False, current_user=session['user'])
 
 # ==========================================
-# 🟢 1. EXPOSED GARENA API ENDPOINT
+# 🟢 GARENA CUSTOM SCRAPER API ENDPOINT
 # ==========================================
 @app.route('/player-info')
 @cached_endpoint(ttl=300)
@@ -59,7 +60,7 @@ def api_get_account_info():
     finally: api_limiter.release()
 
 # ==========================================
-# 🟢 2. CORE DASHBOARD ENDPOINTS
+# 🟢 CORE DASHBOARD CONTROL SYSTEM
 # ==========================================
 @app.route('/api/stock/upload', methods=['POST'])
 def upload_stock_accounts():
@@ -376,6 +377,7 @@ def add_target():
     distribute_targets()
     return jsonify({"success": True, "msg": "Protocol active on target!"})
 
+# 🚀 TARGET DELETION - REAL-TIME CLOUD & SQLITE SYNCHRONIZER
 @app.route('/api/target/delete', methods=['POST'])
 def delete_target():
     if not session.get('logged_in'): return jsonify({"success": False})
@@ -385,7 +387,16 @@ def delete_target():
     if not target_to_del: return jsonify({"success": False, "msg": "Target not found."})
     if not is_owner(user) and target_to_del.get('addedByUsername') != user['username']: return jsonify({"success": False, "msg": "Permission denied."})
 
+    # active.json ওভাররাইট করা হচ্ছে (data_coordinator স্বয়ংক্রিয়ভাবে SQLite ও MongoDB রিয়েল-টাইমে আপডেট করবে)
     save_json_locked(FILES['active'], [t for t in active_data if isinstance(t, dict) and t.get('uid') != uid])
+    
+    # মঙ্গোডিবি থেকে প্রোফাইল ইনফো ডিলিট করা
+    if data_coordinator.MONGO_CONNECTED:
+        try:
+            data_coordinator.mongo_db['profiles'].delete_one({"uid": str(uid)})
+        except Exception:
+            pass
+
     add_target_log("DELETE", uid, target_to_del.get('name', 'Unknown'), target_to_del.get('duration', 'N/A'), user.get('name', user['username']))
     distribute_targets()
     return jsonify({"success": True})
@@ -430,6 +441,7 @@ def save_user():
     save_json_locked(FILES['members'], members); distribute_targets() 
     return jsonify({"success": True})
 
+# 🚀 USER DELETION - REAL-TIME CLOUD & SQLITE SYNCHRONIZER
 @app.route('/api/users/delete', methods=['POST'])
 def delete_user():
     if not session.get('logged_in') or not is_owner(session.get('user')): return jsonify({"success": False}), 401
@@ -441,9 +453,21 @@ def delete_user():
     if not target_user: return jsonify({"success": False, "msg": "User not found."}), 404
     if not is_creator(session['user']) and is_owner(target_user): return jsonify({"success": False, "msg": "Permission denied."}), 403
             
+    # members.json আপডেট করা (data_coordinator মঙ্গোডিবি ও এসকিউলাইট আপডেট করে দেবে)
     save_json_locked(FILES['members'], [m for m in members if m['username'] != username])
+    
+    # লোকাল কনফিগ ফাইল ডিলিট
     path = os.path.join(USERS_DIR, f"{username}.json")
-    if os.path.exists(path): os.remove(path)
+    if os.path.exists(path): 
+        os.remove(path)
+        
+    # ক্লাউড মঙ্গোডিবি থেকে ইউজারের পার্সোনাল কনফিগ ডকুমেন্ট স্থায়ীভাবে মুছে ফেলা
+    if data_coordinator.MONGO_CONNECTED:
+        try:
+            data_coordinator.mongo_db['user_configs'].delete_one({"_id": username})
+        except Exception:
+            pass
+            
     compile_master_bots(); distribute_targets()
     return jsonify({"success": True})
 
