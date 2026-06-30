@@ -1,0 +1,245 @@
+<!-- START OF FILE templates/sections/data.html -->
+<div class="flex flex-col md:flex-row justify-between items-center bg-[#1B1E31]/40 border border-white/5 p-4 rounded-[2rem] gap-4 mb-6 glass-card">
+    <div class="w-full relative">
+        <i class="fas fa-search absolute left-4 top-4 text-gray-500"></i>
+        <input type="text" id="searchDataInput" placeholder="Search Records by UID, Guild ID or Name..." onkeyup="dataRenderLimit=20; renderData()" class="w-full bg-[#0b0d17]/85 border border-white/10 text-white rounded-2xl py-3.5 pl-11 pr-4 outline-none focus:border-indigo-400 transition font-bold shadow-inner">
+    </div>
+</div>
+
+<h2 class="text-xl font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2 ml-2"><i class="fas fa-database text-indigo-400"></i> Leader Records</h2>
+
+<div class="flex flex-col md:flex-row gap-4 items-start w-full">
+    <div id="data-col-left" class="w-full md:w-1/2 flex flex-col gap-4"></div>
+    <div id="data-col-right" class="w-full md:w-1/2 flex flex-col gap-4"></div>
+</div>
+
+<script>
+    window.safeRunSection('data', function() {
+        window.dataRenderLimit = 20;
+
+        window.fetchData = async function() {
+            try { 
+                let res = await fetch('/api/data'); 
+                if (res.status === 401) { window.location.reload(); return; }
+                window.allHistoryData = await res.json(); 
+                renderData(); 
+            } catch(e) {
+                console.error("fetchData failed:", e);
+            }
+        };
+
+        window.renderData = function() {
+            const leftCol = document.getElementById('data-col-left');
+            const rightCol = document.getElementById('data-col-right');
+            if(!leftCol || !rightCol) return;
+
+            let term = document.getElementById('searchDataInput').value.toLowerCase().trim();
+            const historyData = window.allHistoryData || {};
+            
+            let filteredKeys = Object.keys(historyData).filter(uid => {
+                let d = historyData[uid];
+                let gId = d.guildId || "";
+                let matchTarget = uid.includes(term) || (d.name && d.name.toLowerCase().includes(term)) || gId.includes(term);
+                let matchLeader = false;
+                if(d.leaders) { 
+                    matchLeader = d.leaders.some(l => { 
+                        let lUid = typeof l === 'object' ? String(l.uid) : String(l).split(': ')[0]; 
+                        let lGid = typeof l === 'object' ? String(l.guildId || "") : "";
+                        return lUid.includes(term) || lGid.includes(term); 
+                    }); 
+                }
+                d._matchTarget = matchTarget; 
+                d._matchLeader = matchLeader;
+                return matchTarget || matchLeader;
+            });
+
+            let paginatedKeys = filteredKeys.slice(0, window.dataRenderLimit);
+
+            if(paginatedKeys.length === 0) { 
+                leftCol.innerHTML = '<div class="p-10 text-center text-gray-500 font-bold bg-[#1B1E31]/40 border border-white/5 rounded-[2rem] w-full">No records found.</div>'; 
+                rightCol.innerHTML = ''; 
+                return; 
+            }
+
+            let leftHtml = ''; let rightHtml = '';
+            paginatedKeys.forEach((uid, index) => {
+                let d = historyData[uid];
+                const hPicSrc = `https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/${d.headPic || '902000003'}.png`;
+                let totalLeaders = d.leaders.length;
+                let isExpanded = term !== '' && !d._matchTarget && d._matchLeader;
+                let expandClass = isExpanded ? "" : "hidden";
+
+                let cardHtml = `
+                <div class="relative glass-card rounded-[2rem] overflow-hidden flex flex-col font-sans w-full mb-1">
+                    <div class="h-8 bg-[#11131a]/60 border-b border-white/5 flex justify-between items-center px-3 relative">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500"></div>
+                        <div class="ml-2 text-indigo-400 font-black italic tracking-widest text-[9px] uppercase">RECORDED LEADERS: <span class="text-white font-bold">${totalLeaders}</span></div>
+                        <button onclick="viewGenericProfile('${uid}', 'History Target Profile')" class="text-blue-400 hover:text-blue-300 text-xs transition" title="View Profile"><i class="fas fa-eye"></i></button>
+                    </div>
+                    <div class="p-3.5 flex gap-4 relative bg-gradient-to-r from-[#1f2231]/30 to-[#151720]/30">
+                        <div class="absolute top-0 left-0 bottom-0 w-6 bg-indigo-500" style="clip-path: polygon(0 0, 100% 0, 0% 100%, 0 100%);"></div>
+                        <div class="relative z-10 flex flex-col items-center ml-1 cursor-pointer hover:scale-105 transition-transform" onclick="viewGenericProfile('${uid}', 'History Target Profile')" title="View Profile">
+                            <div class="w-[50px] h-[50px] border-[2px] border-purple-800 bg-black p-0.5 shadow-lg relative rounded-2xl overflow-hidden">
+                                <img src="${hPicSrc}" class="w-full h-full object-cover">
+                            </div>
+                        </div>
+                        <div class="relative z-10 flex-1 flex flex-col justify-center min-w-0">
+                            <div class="text-sm font-black text-white tracking-wide game-font truncate mb-1">${d.name || 'Unknown'}</div>
+                            <div class="text-yellow-400 text-[9px] font-bold truncate mb-0.5"><i class="fas fa-shield-alt text-gray-500"></i> ${d.guild || 'No Guild'}</div>
+                            
+                            <div class="flex justify-between items-end mt-1">
+                                <div class="text-[9px] text-gray-500 font-mono cursor-pointer hover:text-white" onclick="copyToClipboard('${d.guildId || ""}', this)" title="Copy Guild ID">Guild ID: <span class="text-white font-bold">${d.guildId || 'N/A'}</span></div>
+                                <div class="text-[9px] text-gray-500 font-mono cursor-pointer hover:text-white text-right" onclick="copyToClipboard('${uid}', this)" title="Copy UID">Target UID: <span class="text-white font-bold">${uid}</span></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-center pr-1 relative z-10">
+                            <button onclick="toggleDataExpand('${uid}')" class="text-indigo-400 hover:text-white transition text-[10px] font-black bg-[#11131a] px-3.5 py-2 rounded-2xl border border-white/5 uppercase tracking-wider">
+                                <i class="fas fa-chevron-down mr-1"></i> Records
+                            </button>
+                        </div>
+                    </div>
+                    <div id="expand-box-${uid}" class="${expandClass} bg-[#0d0f16]/90 border-t border-white/5">
+                        <div id="leaders-list-${uid}" class="flex flex-col gap-1.5 p-2.5"></div>
+                        <button id="load-more-${uid}" onclick="loadMoreLeaders('${uid}')" class="hidden w-full text-center text-xs font-bold text-gray-400 hover:text-white bg-[#1a1c24]/50 py-2.5 transition">
+                            <i class="fas fa-arrow-down mr-1"></i> Load More...
+                        </button>
+                    </div>
+                </div>`;
+                if (index % 2 === 0) leftHtml += cardHtml; else rightHtml += cardHtml;
+            });
+            
+            if(paginatedKeys.length < filteredKeys.length) {
+                leftHtml += `<div class="w-full text-center p-4 text-gray-500 font-bold text-xs"><i class="fas fa-spinner fa-spin mr-2 text-indigo-400"></i>Scroll to load more...</div>`;
+            }
+            leftCol.innerHTML = leftHtml; 
+            rightCol.innerHTML = rightHtml;
+            
+            paginatedKeys.forEach(uid => {
+                let d = historyData[uid]; 
+                let isExpanded = term !== '' && !d._matchTarget && d._matchLeader;
+                if (isExpanded) { 
+                    if(!dataPagination[uid]) dataPagination[uid] = { page: 1, limit: 4 }; 
+                    if(!dataPagination[uid].leaderCache) dataPagination[uid].leaderCache = {};
+                    renderLeadersList(uid); 
+                }
+            });
+        };
+
+        window.toggleDataExpand = function(uid) {
+            let box = document.getElementById(`expand-box-${uid}`);
+            if(!box) return;
+            if(box.classList.contains('hidden')) {
+                document.querySelectorAll('[id^="expand-box-"]').forEach(el => el.classList.add('hidden'));
+                box.classList.remove('hidden'); 
+                if(!dataPagination[uid]) dataPagination[uid] = { page: 1, limit: 4 }; 
+                dataPagination[uid].leaderCache = {};
+                renderLeadersList(uid);
+            } else { box.classList.add('hidden'); }
+        };
+
+        window.renderLeadersList = function(uid) {
+            let container = document.getElementById(`leaders-list-${uid}`); 
+            if(!container) return; 
+            let btn = document.getElementById(`load-more-${uid}`); 
+            let leaders = window.allHistoryData[uid].leaders || [];
+            let term = document.getElementById('searchDataInput').value.toLowerCase().trim();
+            
+            let matchTarget = uid.includes(term) || (window.allHistoryData[uid].name && window.allHistoryData[uid].name.toLowerCase().includes(term)) || (window.allHistoryData[uid].guildId || "").includes(term);
+            let filteredLeaders = leaders;
+            
+            if (term !== '' && !matchTarget) { 
+                filteredLeaders = leaders.filter(l => { 
+                    let lUid = typeof l === 'object' ? String(l.uid) : String(l).split(': ')[0]; 
+                    let lGid = typeof l === 'object' ? String(l.guildId || "") : "";
+                    return lUid.includes(term) || lGid.includes(term); 
+                }); 
+            }
+            let pag = dataPagination[uid] || { page: 1, limit: 4 }; 
+            let itemsToShow = filteredLeaders.slice(0, pag.page * pag.limit);
+            let cache = dataPagination[uid].leaderCache || {};
+            
+            container.innerHTML = itemsToShow.map((l, index) => {
+                let lUid = typeof l === 'object' ? String(l.uid) : String(l).split(': ')[0]; 
+                let tStamp = typeof l === 'object' ? l.timestamp : String(l).split(': ')[1] || ''; 
+                let cardId = `lcard-${uid}-${index}`; 
+                
+                let cName, cGuild, cPic;
+                if(cache[lUid]) {
+                    cName = cache[lUid].name; cGuild = cache[lUid].guild; cPic = cache[lUid].pic;
+                } else {
+                    cName = 'Loading...'; cGuild = 'Loading Guild...'; cPic = `<i class="fas fa-spinner fa-spin text-indigo-400 text-xs"></i>`;
+                    fetchRealTimeLeaderProfile(lUid, cardId, uid);
+                }
+                
+                let displayUid = lUid;
+                if (term !== '' && lUid.includes(term) && !matchTarget) { 
+                    let regex = new RegExp(term, 'gi'); 
+                    displayUid = lUid.replace(regex, match => `<span class="bg-indigo-500 text-white px-[2px] rounded">${match}</span>`); 
+                }
+                
+                return `
+                <div id="${cardId}" class="bg-[#1b1e2b]/80 backdrop-blur-md rounded-2xl border border-white/5 p-2.5 flex items-center gap-3 hover:border-indigo-400/40 transition-colors">
+                    <div class="w-10 h-10 border border-purple-800 bg-black p-0.5 rounded-xl shadow flex-shrink-0 flex items-center justify-center cursor-pointer" onclick="viewGenericProfile('${lUid}', 'Historical Leader')" title="View Profile">${cPic}</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-white text-sm font-bold game-font truncate leading-tight">${cName}</div>
+                        <div class="text-indigo-400 text-[9px] font-bold truncate mt-0.5"><i class="fas fa-shield-alt text-gray-500"></i> ${cGuild}</div>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        <div class="text-cyan-400 font-mono text-[10px] font-bold cursor-pointer hover:text-white" onclick="copyToClipboard('${lUid}', this)" title="Copy Leader ID"><i class="fas fa-crown text-yellow-500 text-[9px] mr-1"></i>${displayUid}</div>
+                        <div class="text-gray-500 text-[9px] font-mono mt-0.5">${tStamp}</div>
+                    </div>
+                </div>`;
+            }).join('');
+            
+            if (itemsToShow.length >= filteredLeaders.length) {
+                btn.classList.add('hidden'); 
+            } else {
+                btn.classList.remove('hidden');
+            }
+        };
+
+        window.fetchRealTimeLeaderProfile = async function(lUid, cardId, targetUid) {
+            try {
+                const res = await fetch('/api/fetch_profile', { method: 'POST', body: JSON.stringify({uid: lUid, save: false, force: false}) }); 
+                const d = await res.json();
+                
+                let cName, cGuild, cPic;
+                if(d.success) {
+                    const basic = d.data?.basicInfo || {}; const clan = d.data?.clanBasicInfo || {}; 
+                    let lPic = `https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/${basic.headPic || '902000003'}.png`;
+                    cPic = `<img src="${lPic}" class="w-full h-full object-cover rounded-md">`;
+                    cName = basic.nickname || 'Unknown';
+                    cGuild = clan.clanName || 'No Guild';
+                } else {
+                    cPic = `<i class="fas fa-user-times text-rose-500 text-xs"></i>`; cName = `Not Found`; cGuild = `No Guild`;
+                }
+                
+                if(dataPagination[targetUid] && dataPagination[targetUid].leaderCache) {
+                    dataPagination[targetUid].leaderCache[lUid] = { name: cName, guild: cGuild, pic: cPic };
+                }
+
+                const card = document.getElementById(cardId); if (!card) return; 
+                card.querySelector('.w-10').innerHTML = cPic;
+                card.querySelector('.flex-1').innerHTML = `
+                    <div class="text-white text-sm font-bold game-font truncate leading-tight">${cName}</div>
+                    <div class="text-indigo-400 text-[9px] font-bold truncate mt-0.5"><i class="fas fa-shield-alt text-gray-500"></i> ${cGuild}</div>`;
+            } catch(e) {
+                console.error("Leader lookup failed:", e);
+            }
+        };
+
+        window.loadMoreLeaders = function(uid) { 
+            dataPagination[uid].page += 1; 
+            renderLeadersList(uid); 
+        };
+
+        window.addEventListener('tabSwitched', function(e) {
+            if (e.detail.tab === 'data') {
+                fetchData();
+            }
+        });
+
+        fetchData();
+    });
+</script>
+<!-- END OF FILE templates/sections/data.html -->

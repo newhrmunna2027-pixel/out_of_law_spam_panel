@@ -1,0 +1,72 @@
+<!-- START OF FILE templates/sections/logs.html -->
+<div class="bg-[#1B1E31]/40 border border-white/5 p-6 rounded-[2rem] shadow-lg glass-card">
+    <h2 class="text-xl font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2"><i class="fas fa-history text-fuchsia-400"></i> System Target Logs</h2>
+    
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse min-w-[600px]">
+            <thead>
+                <tr class="bg-[#11131a]/80 text-gray-500 text-[10px] uppercase tracking-widest font-black border-b border-white/5">
+                    <th class="p-4 rounded-tl-xl whitespace-nowrap">Action</th>
+                    <th class="p-4 whitespace-nowrap">Target Name & UID</th>
+                    <th class="p-4 whitespace-nowrap">Duration</th>
+                    <th class="p-4 whitespace-nowrap">Added/Deleted By</th>
+                    <th class="p-4 rounded-tr-xl whitespace-nowrap">Timestamp</th>
+                </tr>
+            </thead>
+            <tbody id="logs-table" class="text-sm">
+                <!-- Loaded via JS -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    window.safeRunSection('logs', function() {
+        window.fetchLogs = async function() {
+            try {
+                let res = await fetch('/api/logs');
+                let logs = await res.json();
+                let html = '';
+                
+                if (logs.length === 0) {
+                    html = `<tr><td colspan="5" class="p-8 text-center text-gray-500 italic">No logs recorded yet.</td></tr>`;
+                } else {
+                    logs.forEach(log => {
+                        let isAdd = log.action === 'ADD';
+                        let isExp = log.action === 'EXPIRED';
+                        let color = isAdd ? 'text-emerald-400' : (isExp ? 'text-yellow-400' : 'text-rose-500');
+                        let bg = isAdd ? 'bg-emerald-500/10 border-emerald-500/20' : (isExp ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-rose-500/10 border-rose-500/20');
+                        
+                        // 🚀 FIXED: All backslash escapes completely removed!
+                        html += `
+                        <tr class="border-b border-white/5 hover:bg-[#11131a]/40 transition duration-150">
+                            <td class="p-4">
+                                <span class="${bg} ${color} border px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider">${log.action}</span>
+                            </td>
+                            <td class="p-4">
+                                <div class="text-white font-bold game-font truncate w-32 md:w-48">${log.name}</div>
+                                <div class="text-gray-500 font-mono text-xs">${log.uid}</div>
+                            </td>
+                            <td class="p-4 text-gray-400 font-bold text-xs uppercase whitespace-nowrap">${log.duration || 'N/A'}</td>
+                            <td class="p-4 text-cyan-400 font-bold capitalize whitespace-nowrap"><i class="fas fa-user-shield text-gray-600 mr-1"></i> ${log.by}</td>
+                            <td class="p-4 text-gray-500 font-mono text-xs whitespace-nowrap">${formatDateTime(log.time/1000)}</td>
+                        </tr>`;
+                    });
+                }
+                document.getElementById('logs-table').innerHTML = html;
+            } catch(e) {
+                console.error("fetchLogs failed:", e);
+            }
+        };
+
+        window.addEventListener('tabSwitched', function(e) {
+            if (e.detail.tab === 'logs_tab') {
+                fetchLogs();
+            }
+        });
+
+        // Initialize Logs tab
+        fetchLogs();
+    });
+</script>
+<!-- END OF FILE templates/sections/logs.html -->

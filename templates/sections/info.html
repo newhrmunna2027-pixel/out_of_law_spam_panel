@@ -1,0 +1,107 @@
+<!-- START OF FILE templates/sections/info.html -->
+<div class="flex flex-col md:flex-row justify-between items-center bg-[#1B1E31]/40 border border-white/5 p-4 rounded-[2rem] gap-4 mb-6 glass-card">
+    <div class="w-full relative">
+        <i class="fas fa-search absolute left-4 top-4 text-gray-500"></i>
+        <input type="text" id="searchInfoInput" placeholder="Search Tracker by UID or Name..." onkeyup="infoRenderLimit=20; renderInfo()" class="w-full bg-[#0b0d17]/85 border border-white/10 text-white rounded-2xl py-3.5 pl-11 pr-4 outline-none focus:border-indigo-400 transition font-bold shadow-inner">
+    </div>
+</div>
+
+<h2 class="text-xl font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2 ml-2"><i class="fas fa-info-circle text-indigo-400"></i> Live Status Tracker</h2>
+
+<!-- Grid for Info Cards -->
+<div id="info-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- Loaded via JS -->
+</div>
+
+<script>
+    window.safeRunSection('info', function() {
+        window.infoRenderLimit = 20;
+
+        window.fetchInfo = async function() {
+            try { 
+                let res = await fetch('/api/info'); 
+                if (res.status === 401) { window.location.reload(); return; }
+                window.allInfoData = await res.json(); 
+                renderInfo(); 
+            } catch(e) {
+                console.error("fetchInfo failed:", e);
+            }
+        };
+
+        window.renderInfo = function() {
+            const grid = document.getElementById('info-grid');
+            if(!grid) return;
+
+            let term = document.getElementById('searchInfoInput').value.toLowerCase().trim();
+            const infoData = window.allInfoData || {};
+            
+            let filteredKeys = Object.keys(infoData).filter(uid => { 
+                let d = infoData[uid]; 
+                let gId = d.guildId || "";
+                return uid.includes(term) || (d.name && d.name.toLowerCase().includes(term)) || gId.includes(term); 
+            });
+            
+            let paginatedKeys = filteredKeys.slice(0, window.infoRenderLimit);
+
+            if(paginatedKeys.length === 0) { 
+                grid.innerHTML = '<div class="col-span-full p-10 text-center text-gray-500 font-bold bg-[#1B1E31]/40 border border-white/5 rounded-[2rem]">No tracker data found.</div>'; 
+                return; 
+            }
+            
+            grid.innerHTML = paginatedKeys.map(uid => {
+                let d = infoData[uid];
+                const hPicSrc = `https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/${d.headPic || '902000003'}.png`;
+                let isOnline = d.status !== 'OFFLINE';
+                let statusColor = isOnline ? 'emerald-400' : 'rose-500';
+                
+                let leaderLink = (d.leader && d.leader !== 'N/A') ? `<span class="cursor-pointer text-cyan-400 hover:text-white hover:underline font-mono font-bold" onclick="viewGenericProfile('${d.leader}', 'Leader Profile')" title="View Leader Profile">${d.leader}</span>` : 'N/A';
+
+                return `
+                <div class="relative glass-card rounded-[2rem] overflow-hidden flex flex-col font-sans mb-1">
+                    <div class="h-8 bg-[#11131a]/60 border-b border-white/5 flex justify-between items-center px-3 relative">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-${statusColor}"></div>
+                        <div class="ml-2 text-${statusColor} font-black italic tracking-widest text-[9px] uppercase">STATUS: ${d.status}</div>
+                        <div class="text-gray-400 text-[9px] font-mono">${d.last_update}</div>
+                    </div>
+                    <div class="p-3.5 flex gap-4 relative bg-gradient-to-r from-[#1f2231]/30 to-[#151720]/30">
+                        <div class="absolute top-0 left-0 bottom-0 w-6 bg-${statusColor}" style="clip-path: polygon(0 0, 100% 0, 0% 100%, 0 100%);"></div>
+                        <div class="relative z-10 flex flex-col items-center ml-1 cursor-pointer hover:scale-105 transition-transform" onclick="viewGenericProfile('${uid}', 'Tracker Profile')" title="View Profile">
+                            <div class="w-[70px] h-[70px] border-[3px] border-purple-800 bg-black p-0.5 shadow-lg relative rounded-2xl overflow-hidden">
+                                <img src="${hPicSrc}" class="w-full h-full object-cover">
+                            </div>
+                            <div class="text-indigo-400 text-[10px] font-black mt-1">Lv. ${d.level || 0}</div>
+                        </div>
+                        <div class="relative z-10 flex-1 flex flex-col justify-start">
+                            <div class="flex items-center gap-1.5 mb-0.5">
+                                <span class="text-cyan-400 text-sm font-black leading-none">♂</span>
+                                <span class="text-sm font-black text-white tracking-wide game-font truncate">${d.name || 'Unknown'}</span>
+                            </div>
+                            <div class="text-indigo-400 text-[9px] font-bold truncate mb-1"><i class="fas fa-shield-alt text-gray-500"></i> ${d.guild || 'No Guild'}</div>
+                            <div class="text-right mt-auto flex justify-between items-end">
+                                <div class="text-[10px] text-gray-500 font-mono cursor-pointer hover:text-white transition" onclick="copyToClipboard('${uid}', this)" title="Copy UID">UID: <span class="text-white font-bold">${uid}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-[#11131a]/60 flex justify-between items-center px-4 py-2.5 border-t border-white/5 text-[10px] font-bold text-gray-400">
+                        <div>Leader: ${leaderLink}</div>
+                        <div>Sq: <span class="text-white font-black">${d.squad || 'N/A'}</span></div>
+                        <div>Room: <span class="text-white font-black">${d.room_id || 'N/A'}</span></div>
+                    </div>
+                </div>`;
+            }).join('');
+            
+            if(paginatedKeys.length < filteredKeys.length) {
+                grid.innerHTML += `<div class="col-span-full text-center p-4 text-gray-500 font-bold text-xs"><i class="fas fa-spinner fa-spin mr-2 text-indigo-400"></i>Scroll to load more...</div>`;
+            }
+        };
+
+        window.addEventListener('tabSwitched', function(e) {
+            if (e.detail.tab === 'info') {
+                fetchInfo();
+            }
+        });
+
+        fetchInfo();
+    });
+</script>
+<!-- END OF FILE templates/sections/info.html -->

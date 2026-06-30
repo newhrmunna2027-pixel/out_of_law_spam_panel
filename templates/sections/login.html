@@ -1,0 +1,52 @@
+<!-- START OF FILE templates/sections/login.html -->
+<div class="min-h-screen w-full flex items-center justify-center p-4 relative overflow-hidden font-sans">
+    
+    <!-- Ambiance soft glowing dropshadow inside login view -->
+    <div class="absolute top-[20%] left-[20%] w-80 h-80 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+    <div class="absolute bottom-[20%] right-[20%] w-80 h-80 bg-fuchsia-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+
+    <div class="bg-[#171a2b]/80 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/5 w-full max-w-md relative z-10 shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
+        <div class="text-center mb-8">
+            <h1 class="font-['Orbitron'] font-black text-4xl bg-gradient-to-r from-indigo-300 via-purple-200 to-cyan-400 bg-clip-text text-transparent tracking-widest drop-shadow-[0_0_15px_rgba(99,102,241,0.35)] mb-2">
+                OUT OF LAW
+            </h1>
+            <p class="text-gray-400 text-xs font-black uppercase tracking-widest">Secure Operational Terminal</p>
+        </div>
+
+        {% if error %}
+        <div class="bg-rose-500/10 border border-rose-500/30 text-rose-500 text-center p-3.5 rounded-2xl mb-6 text-xs font-black uppercase tracking-wider animate-bounce">
+            <i class="fas fa-exclamation-triangle mr-1.5"></i> {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="POST" action="/login" class="space-y-6">
+            <div>
+                <label class="block text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2.5 ml-2">Username</label>
+                <div class="relative">
+                    <i class="fas fa-user absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
+                    <input type="text" name="username" required class="w-full bg-[#0b0d17]/80 border border-white/10 text-white rounded-2xl py-3.5 pl-11 pr-4 outline-none focus:border-indigo-500/50 transition font-bold placeholder-gray-600" placeholder="Enter Admin Username">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2.5 ml-2">Password</label>
+                <div class="relative">
+                    <i class="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
+                    <input type="password" name="password" required class="w-full bg-[#0b0d17]/80 border border-white/10 text-white rounded-2xl py-3.5 pl-11 pr-4 outline-none focus:border-indigo-500/50 transition placeholder-gray-600 font-bold" placeholder="Enter Password">
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between mt-2 ml-2">
+                <label class="flex items-center gap-2.5 cursor-pointer group">
+                    <input type="checkbox" name="remember" value="true" class="appearance-none w-5 h-5 rounded-lg border border-white/10 checked:bg-indigo-500 checked:border-indigo-500 relative cursor-pointer after:content-['✔'] after:absolute after:text-white after:text-[10px] after:left-[4px] after:top-[1.5px] after:opacity-0 checked:after:opacity-100 transition-all shadow-inner">
+                    <span class="text-gray-400 text-xs font-black uppercase tracking-wider group-hover:text-white transition">Remember Me</span>
+                </label>
+            </div>
+
+            <button type="submit" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-black py-4 rounded-2xl shadow-[0_4px_20px_rgba(99,102,241,0.25)] transition uppercase tracking-widest text-xs">
+                LOGIN TO SYSTEM
+            </button>
+        </form>
+    </div>
+</div>
+<!-- END OF FILE templates/sections/login.html -->

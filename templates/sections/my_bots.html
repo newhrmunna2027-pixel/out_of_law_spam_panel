@@ -1,0 +1,426 @@
+<!-- START OF FILE templates/sections/my_bots.html -->
+<div class="bg-[#1B1E31]/40 border border-white/5 p-6 rounded-[2rem] shadow-lg mb-6 relative overflow-hidden glass-card">
+    <i class="fas fa-server absolute right-[-20px] bottom-[-20px] text-[150px] text-white/3 z-0"></i>
+
+    <div class="relative z-10 w-full">
+        <!-- Title and manual bio button -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <h2 class="text-xl font-black text-white uppercase tracking-widest flex items-center gap-2">
+                <i class="fas fa-server text-indigo-400 animate-pulse"></i> Server Bot Management
+            </h2>
+            <button onclick="openBioChangerModal()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white font-black px-5 py-3 rounded-2xl transition uppercase tracking-widest shadow-lg text-xs flex items-center justify-center gap-2 border border-indigo-400/20">
+                <i class="fas fa-edit"></i> Manual Bio Changer
+            </button>
+        </div>
+        
+        <!-- Owner control toggle -->
+        <div id="owner-toggle-container" class="hidden flex justify-between items-center bg-[#11131a]/80 p-4 rounded-2xl border border-white/5 mb-6 shadow-inner">
+            <div>
+                <h4 class="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2"><i class="fas fa-toggle-on"></i> Manual Bot Add for Users</h4>
+                <p class="text-[9px] text-gray-500 font-bold mt-1">ON থাকলে সাধারণ এডমিনরা নিজস্ব ট্র্যাকার ও অ্যাটাক বট এড করতে পারবে। OFF থাকলে অপশনটি হাইড থাকবে।</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="toggle-allow-bots" class="sr-only peer" onchange="toggleUserBotAdd(this.checked)">
+                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+            </label>
+        </div>
+
+        <!-- Owner stock upload panel -->
+        <div id="owner-stock-panel" class="hidden bg-[#11131a]/85 p-5 rounded-2xl border border-white/5 mb-6 shadow-inner relative overflow-hidden">
+            <h4 class="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2 mb-2">
+                <i class="fas fa-file-import"></i> Upload Bots to Stock (.json)
+            </h4>
+            <p class="text-[9px] text-gray-500 font-bold mb-4">আপলোড করা ফাইলটি যেকোনো ফরম্যাটের (List of dict / Dictionary) হতে পারে। এটি স্টক ফাইলের আগের বট ডিলিট না করে নতুন বটগুলোকে যুক্ত করবে।</p>
+            
+            <div class="flex flex-col sm:flex-row gap-3 items-center">
+                <input type="file" id="stock-file-input" accept=".json" class="hidden" onchange="handleStockFileUpload(this)">
+                <button onclick="document.getElementById('stock-file-input').click()" class="w-full sm:w-auto bg-gray-800 hover:bg-gray-700 text-gray-300 font-black px-5 py-3 rounded-2xl border border-white/10 transition uppercase tracking-widest text-xs flex items-center justify-center gap-2">
+                    <i class="fas fa-folder-open"></i> Choose JSON File
+                </button>
+                <span id="stock-file-name" class="text-[10px] text-gray-400 font-mono italic">No file selected</span>
+                <button id="btn-upload-stock" onclick="uploadStockJson()" class="w-full sm:w-auto bg-indigo-500 hover:bg-indigo-400 text-white font-black px-6 py-3 rounded-2xl transition uppercase tracking-widest shadow-lg text-xs sm:ml-auto flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <i class="fas fa-cloud-upload-alt"></i> Upload Stock
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-[#11131a]/80 p-4 rounded-2xl border border-white/5 shadow-inner">
+                <div class="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1 flex items-center gap-1"><i class="fas fa-user-shield text-indigo-400"></i> Active Given Limit</div>
+                <div class="text-2xl font-black text-white" id="mb-limit">0</div>
+                <div class="text-[9px] text-gray-500 font-bold mt-1">Owner Granted Direct Power</div>
+            </div>
+            <div class="bg-[#11131a]/80 p-4 rounded-2xl border border-white/5 shadow-inner">
+                <div class="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1 flex items-center gap-1"><i class="fas fa-cogs text-blue-400"></i> Provided Self Bots</div>
+                <div class="text-sm font-bold text-gray-400 mt-1">Tracker: <span id="mb-prov-bot" class="text-cyan-400 font-black text-base ml-1">0</span></div>
+                <div class="text-sm font-bold text-gray-400">Attack: <span id="mb-prov-vv" class="text-fuchsia-400 font-black text-base ml-1">0</span></div>
+            </div>
+            <div class="bg-[#11131a]/85 p-4 rounded-2xl border border-indigo-500/30 shadow-lg relative overflow-hidden">
+                <div class="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1" id="mb-usable-title">Total Usable Limit (Combined)</div>
+                <div class="text-3xl font-black text-emerald-400" id="mb-usable">0</div>
+                <div class="text-[9px] text-emerald-500/70 font-bold mt-1" id="mb-usable-desc">Sum of Self Usable + Owner Given</div>
+                <div class="absolute right-[-10px] bottom-[-10px] text-5xl text-emerald-500/10"><i class="fas fa-check-circle"></i></div>
+            </div>
+        </div>
+
+        <!-- Bot addition input form -->
+        <div class="bg-[#11131a]/80 p-4 rounded-2xl border border-white/5 flex flex-col md:flex-row gap-4 items-center hidden" id="add-bot-input-container">
+            <div class="w-full relative">
+                <i class="fas fa-fingerprint absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
+                <input type="text" id="add-bot-uid" placeholder="Bot UID" class="w-full bg-[#0b0d17]/90 border border-white/10 text-white rounded-2xl px-4 py-3.5 pl-11 outline-none focus:border-indigo-400 font-bold transition">
+            </div>
+            <div class="w-full relative">
+                <i class="fas fa-key absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
+                <input type="text" id="add-bot-pwd" placeholder="Password" class="w-full bg-[#0b0d17]/90 border border-white/10 text-white rounded-2xl px-4 py-3.5 pl-11 outline-none focus:border-indigo-400 font-bold transition">
+            </div>
+            <button onclick="submitNewBot()" class="w-full md:w-auto bg-indigo-500 hover:bg-indigo-400 text-white font-black px-8 py-3.5 rounded-2xl transition uppercase tracking-widest shadow-lg flex-shrink-0 whitespace-nowrap">
+                Add Bot
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="my-bots-list"></div>
+
+<!-- FAILED BOTS SECTION -->
+<div class="mt-4" id="my-failed-bots"></div>
+
+<!-- Bio Changer Popup Modal -->
+<div id="bio-changer-modal" class="fixed inset-0 hidden items-center justify-center bg-black/95 backdrop-blur-sm z-[250] transition-all">
+    <div class="bg-[#171a2b] border border-white/5 w-full max-w-sm rounded-[2.2rem] relative overflow-hidden p-6 mx-4 shadow-2xl">
+        <button onclick="closeBioChangerModal()" class="absolute top-5 right-5 text-gray-500 hover:text-white bg-gray-800 p-2 rounded-full transition z-20"><i class="fas fa-times"></i></button>
+        
+        <h3 class="text-lg font-black text-white uppercase tracking-widest mb-1 flex items-center gap-2">
+            <i class="fas fa-edit text-blue-400"></i> Manual Bio Changer
+        </h3>
+        <p class="text-[9px] text-gray-500 font-bold uppercase tracking-wider">বটের ফ্রি ফায়ার বায়ো সিগনেচার পরিবর্তনের সেন্ট্রাল প্যানেল।</p>
+        
+        <div class="space-y-4 mt-4">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-[9px] text-gray-500 font-black uppercase tracking-wider block mb-1">Bot UID</label>
+                    <input type="text" id="bio-bot-uid" placeholder="Enter Bot UID" class="w-full bg-[#11131a] border border-white/10 text-white rounded-2xl p-3 text-xs font-bold focus:border-indigo-500 outline-none">
+                </div>
+                <div>
+                    <label class="text-[9px] text-gray-500 font-black uppercase tracking-wider block mb-1">Bot Password</label>
+                    <input type="text" id="bio-bot-pwd" placeholder="Password" class="w-full bg-[#11131a] border border-white/10 text-white rounded-2xl p-3 text-xs font-bold focus:border-indigo-500 outline-none">
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="text-[9px] text-gray-500 font-black uppercase tracking-wider block mb-1">Line 1 Signature</label>
+                    <input type="text" id="bio-l1" placeholder="e.g. 👑 OUT OF LAW 👑" class="w-full bg-[#11131a] border border-white/10 text-white rounded-xl p-3 text-xs font-bold focus:border-indigo-500 outline-none">
+                </div>
+                <div>
+                    <label class="text-[9px] text-gray-500 font-black uppercase tracking-wider block mb-1">Line 2 Signature</label>
+                    <input type="text" id="bio-l2" placeholder="e.g. [FF0000]ATTACK ACTIVE" class="w-full bg-[#11131a] border border-white/10 text-white rounded-xl p-3 text-xs font-bold focus:border-indigo-500 outline-none">
+                </div>
+                <div>
+                    <label class="text-[9px] text-gray-500 font-black uppercase tracking-wider block mb-1">Line 3 Signature (Loaded Limit)</label>
+                    <input type="text" id="bio-l3" class="w-full bg-[#11131a] border border-white/10 text-yellow-400 rounded-xl p-3 text-xs font-bold focus:border-indigo-500 outline-none">
+                </div>
+            </div>
+
+            <button onclick="submitBioChange()" class="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-lg transition-all mt-4">
+                Execute Bio Change
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.safeRunSection('my-bots', function() {
+        let selectedStockJsonData = null;
+
+        window.fetchMyBots = async function() {
+            try {
+                let res = await fetch('/api/my_bots');
+                if (res.status === 401) { 
+                    window.location.reload(); 
+                    return; 
+                }
+                let data = await res.json();
+                
+                document.getElementById('mb-limit').innerText = data.limit;
+                document.getElementById('mb-prov-bot').innerText = data.provided_bot;
+                document.getElementById('mb-prov-vv').innerText = data.provided_vv;
+                document.getElementById('mb-usable').innerText = data.usable_limit;
+                
+                if(document.getElementById('profile-usable-limit')) {
+                    document.getElementById('profile-usable-limit').innerText = data.usable_limit;
+                }
+
+                if (currentUser && (currentUser.role === 'owner' || currentUser.role === 'creator')) {
+                    document.getElementById('owner-toggle-container').classList.remove('hidden');
+                    document.getElementById('owner-stock-panel').classList.remove('hidden');
+                    document.getElementById('add-bot-input-container').classList.remove('hidden');
+                    
+                    document.getElementById('mb-usable-title').innerText = "Total Distributed Active Limit";
+                    document.getElementById('mb-usable-desc').innerText = "Total active capacity assigned to all admins";
+                    
+                    const toggleInput = document.getElementById('toggle-allow-bots');
+                    if (toggleInput) {
+                        toggleInput.checked = data.allow_user_add_bot;
+                    }
+                } else {
+                    document.getElementById('owner-toggle-container').classList.add('hidden');
+                    document.getElementById('owner-stock-panel').classList.add('hidden');
+                    
+                    document.getElementById('mb-usable-title').innerText = "Total Usable Limit (Combined)";
+                    document.getElementById('mb-usable-desc').innerText = "Sum of Self Usable + Owner Given";
+                    
+                    if (data.allow_user_add_bot) {
+                        document.getElementById('add-bot-input-container').classList.remove('hidden');
+                    } else {
+                        document.getElementById('add-bot-input-container').classList.add('hidden');
+                    }
+                }
+
+                let activeBotsHtml = '';
+                const activeTrackerBots = (data.bots && data.bots.bot) ? data.bots.bot : [];
+                const activeAttackBots = (data.bots && data.bots.vv) ? data.bots.vv : [];
+
+                activeBotsHtml += `<div class="glass-card p-5 rounded-[2rem]">
+                    <h3 class="text-cyan-400 font-black mb-3 text-sm tracking-widest uppercase"><i class="fas fa-search"></i> Info Tracker Bots <span class="text-gray-500 ml-2">(${data.provided_bot} / ${data.needed_bot})</span></h3>
+                    <div class="space-y-2 max-h-64 overflow-y-auto pr-2">
+                    ${activeTrackerBots.length === 0 ? '<div class="text-gray-600 text-xs text-center py-4">No bots added.</div>' : ''}
+                    ${activeTrackerBots.map((b,i) => `<div class="flex justify-between items-center p-3 bg-[#11131a]/60 rounded-2xl border border-white/5"><span class="text-gray-500 text-xs w-6">${i+1}.</span><span class="text-white font-mono text-sm tracking-widest font-bold flex-1">${b.uid}</span><span class="text-cyan-400 text-[10px] uppercase font-black px-2 py-0.5 bg-cyan-400/10 rounded-xl">Tracking</span></div>`).join('')}
+                    </div>
+                </div>`;
+                
+                activeBotsHtml += `<div class="glass-card p-5 rounded-[2rem]">
+                    <h3 class="text-fuchsia-400 font-black mb-3 text-sm tracking-widest uppercase"><i class="fas fa-bolt"></i> Attack Server Bots <span class="text-gray-500 ml-2">(${data.provided_vv} / ${data.needed_vv})</span></h3>
+                    <div class="space-y-2 max-h-64 overflow-y-auto pr-2">
+                    ${activeAttackBots.length === 0 ? '<div class="text-gray-600 text-xs text-center py-4">No bots added.</div>' : ''}
+                    ${activeAttackBots.map((b,i) => `<div class="flex justify-between items-center p-3 bg-[#11131a]/60 rounded-2xl border border-white/5"><span class="text-gray-500 text-xs w-6">${i+1}.</span><span class="text-white font-mono text-sm tracking-widest font-bold flex-1">${b.uid}</span><span class="text-fuchsia-400 text-[10px] uppercase font-black px-2 py-0.5 bg-fuchsia-400/10 rounded-xl">Attacking</span></div>`).join('')}
+                    </div>
+                </div>`;
+                
+                document.getElementById('my-bots-list').innerHTML = activeBotsHtml;
+
+                let failedHtml = '';
+                const failedBotsList = (data.bots && data.bots.failed) ? data.bots.failed : [];
+
+                if (failedBotsList.length > 0) {
+                    let listHtml = '';
+                    failedBotsList.forEach((b, i) => {
+                        let uid = b.uid || '';
+                        let reason = b.reason || 'Login Failed';
+                        let timeStr = b.time || 'N/A';
+                        let typeStr = b.type || b.source || 'Unknown Server';
+                        
+                        listHtml += `
+                        <div class="flex justify-between items-center p-3 bg-rose-500/5 rounded-2xl border border-rose-500/15">
+                            <div class="flex items-center gap-3">
+                                <span class="text-rose-500 text-xs w-4">${i+1}.</span>
+                                <div>
+                                    <div class="text-white font-mono text-sm tracking-widest font-bold">${uid}</div>
+                                    <div class="text-[9px] text-gray-500 uppercase font-bold">${reason} | ${timeStr}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-rose-400 text-[9px] uppercase font-black px-2 py-0.5 bg-rose-400/10 rounded-2xl border border-rose-400/20">${typeStr}</span>
+                                <button onclick="removeFailedBot('${uid}')" class="bg-[#11131a]/80 border border-white/10 hover:border-rose-500 hover:bg-rose-500/20 text-gray-400 hover:text-white px-3 py-1.5 rounded-xl transition"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>`;
+                    });
+
+                    failedHtml = `<div class="bg-rose-950/10 border border-rose-500/30 p-5 rounded-[2rem] col-span-full">
+                        <h3 class="text-rose-500 font-black mb-3 text-sm tracking-widest uppercase flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Failed / Banned Bots</h3>
+                        <div class="space-y-2 max-h-64 overflow-y-auto pr-2">
+                            ${listHtml}
+                        </div>
+                    </div>`;
+                }
+                
+                document.getElementById('my-failed-bots').innerHTML = failedHtml;
+            } catch(e) {
+                console.error("fetchMyBots failed to render cleanly:", e);
+            }
+        };
+
+        window.submitNewBot = async function() {
+            let uid = document.getElementById('add-bot-uid').value.trim();
+            let pwd = document.getElementById('add-bot-pwd').value.trim();
+            if(!uid || !pwd) {
+                showPopup("Missing Data", "Please fill in all bot fields.", "error");
+                return;
+            }
+            
+            let btn = document.activeElement;
+            let origText = btn.innerText;
+            btn.innerText = "PROCESSING..."; btn.disabled = true;
+
+            try {
+                let res = await fetch('/api/add_bot', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({uid: uid, password: pwd}) });
+                let data = await res.json();
+                if (data.success) {
+                    showPopup("Success", data.msg, "success");
+                    document.getElementById('add-bot-uid').value = '';
+                    document.getElementById('add-bot-pwd').value = '';
+                    fetchMyBots();
+                } else {
+                    showPopup("Error Adding Bot", data.msg, "error");
+                }
+            } catch(e) { 
+                showPopup("Connection Error", "Could not connect to the API server.", "error"); 
+            }
+            btn.innerText = origText; btn.disabled = false;
+        };
+
+        window.removeFailedBot = async function(uid) {
+            try {
+                let res = await fetch('/api/remove_failed_bot', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({uid}) });
+                let data = await res.json();
+                if (data.success) {
+                    showPopup("Deleted", "Failed bot cleared successfully.", "success");
+                    fetchMyBots();
+                }
+            } catch(e) { 
+                showPopup("Error", "Could not process request.", "error"); 
+            }
+        };
+
+        window.toggleUserBotAdd = async function(status) {
+            try {
+                let res = await fetch('/api/access/toggle_add_bot', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({status}) });
+                let data = await res.json();
+                if (data.success) {
+                    showPopup("Toggle Saved", "User bot-add configuration updated successfully.", "success");
+                    fetchMyBots();
+                }
+            } catch(e) {
+                showPopup("Error", "Could not update user bot-add rules.", "error");
+            }
+        };
+
+        window.handleStockFileUpload = function(input) {
+            const file = input.files[0];
+            const nameLabel = document.getElementById('stock-file-name');
+            const uploadBtn = document.getElementById('btn-upload-stock');
+            
+            if (!file) {
+                nameLabel.innerText = "No file selected";
+                uploadBtn.disabled = true;
+                selectedStockJsonData = null;
+                return;
+            }
+
+            nameLabel.innerText = file.name;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    selectedStockJsonData = JSON.parse(e.target.result);
+                    uploadBtn.disabled = false;
+                } catch(err) {
+                    showPopup("Invalid JSON", "The selected file is not a valid JSON structure.", "error");
+                    nameLabel.innerText = "Error parsing JSON";
+                    uploadBtn.disabled = true;
+                    selectedStockJsonData = null;
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        window.uploadStockJson = async function() {
+            if (!selectedStockJsonData) return;
+            
+            const btn = document.getElementById('btn-upload-stock');
+            const origText = btn.innerHTML;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> Uploading...`;
+            btn.disabled = true;
+
+            try {
+                let res = await fetch('/api/stock/upload', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(selectedStockJsonData)
+                });
+                let data = await res.json();
+                if (data.success) {
+                    showPopup("Stock Uploaded", data.msg || "Bots appended to stock safely.", "success");
+                    document.getElementById('stock-file-input').value = '';
+                    document.getElementById('stock-file-name').innerText = "No file selected";
+                    btn.disabled = true;
+                    selectedStockJsonData = null;
+                    fetchMyBots();
+                } else {
+                    showPopup("Upload Failed", data.msg || "Server failed to append bots.", "error");
+                }
+            } catch(e) {
+                showPopup("API Error", "Could not connect to the Garena stock server.", "error");
+            }
+            btn.innerHTML = origText;
+        };
+
+        window.openBioChangerModal = async function() {
+            document.getElementById('bio-bot-uid').value = '';
+            document.getElementById('bio-bot-pwd').value = '';
+            document.getElementById('bio-l1').value = '';
+            document.getElementById('bio-l2').value = '';
+            
+            try {
+                let res = await fetch('/api/access/metrics');
+                if (res.status === 200) {
+                    let data = await res.json();
+                    document.getElementById('bio-l3').value = data.default_line_3 || "TIKTOK [FF00FF]→OUT OF LAW";
+                } else {
+                    document.getElementById('bio-l3').value = "TIKTOK [FF00FF]→OUT OF LAW";
+                }
+            } catch(e) {
+                document.getElementById('bio-l3').value = "TIKTOK [FF00FF]→OUT OF LAW";
+            }
+            document.getElementById('bio-changer-modal').classList.replace('hidden', 'flex');
+        };
+
+        window.closeBioChangerModal = function() {
+            document.getElementById('bio-changer-modal').classList.replace('flex', 'hidden');
+        };
+
+        window.submitBioChange = async function() {
+            let uid = document.getElementById('bio-bot-uid').value.trim();
+            let pwd = document.getElementById('bio-bot-pwd').value.trim();
+            let l1 = document.getElementById('bio-l1').value.trim();
+            let l2 = document.getElementById('bio-l2').value.trim();
+            let l3 = document.getElementById('bio-l3').value.trim();
+
+            if(!uid || !pwd) {
+                showPopup("Missing Credentials", "Bot UID and Password are required.", "error");
+                return;
+            }
+
+            let btn = document.activeElement;
+            let origText = btn.innerText;
+            btn.innerText = "SENDING PACKETS..."; btn.disabled = true;
+
+            try {
+                let res = await fetch('/api/bio/change', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({uid, password: pwd, l1, l2, l3})
+                });
+                let data = await res.json();
+                if (data.success) {
+                    showPopup("Success", data.msg || "Biography updated successfully!", "success");
+                    closeBioChangerModal();
+                } else {
+                    showPopup("Process Failed", data.msg || "Error executing Garena bio change.", "error");
+                }
+            } catch(e) {
+                showPopup("Connection Error", "Failed to communicate with biography changer server.", "error");
+            }
+            btn.innerText = origText; btn.disabled = false;
+        };
+
+        window.addEventListener('tabSwitched', function(e) {
+            if (e.detail.tab === 'my_bots') {
+                fetchMyBots();
+            }
+        });
+
+        fetchMyBots();
+    });
+</script>
+<!-- END OF FILE templates/sections/my_bots.html -->

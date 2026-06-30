@@ -1,0 +1,157 @@
+<!-- START OF FILE templates/sections/users.html -->
+<div class="flex justify-between items-center bg-[#1B1E31]/40 border border-white/5 p-4 rounded-[2rem] shadow-lg mb-6 glass-card">
+    <h2 class="text-xl font-black text-white uppercase tracking-widest flex items-center gap-2"><i class="fas fa-users text-emerald-400"></i> User Management</h2>
+    <button onclick="openUserModal()" class="bg-emerald-500 hover:bg-emerald-400 text-white font-black px-4 py-2.5 rounded-xl shadow-lg transition text-xs uppercase tracking-wider">
+        + NEW USER
+    </button>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="users-grid">
+    <!-- Loaded via JS -->
+</div>
+
+<!-- 🚀 CUSTOM ELUENT USER DELETE CONFIRM MODAL (Bypasses browser native alert completely) -->
+<div id="user-delete-modal" class="fixed inset-0 hidden items-center justify-center bg-black/90 backdrop-blur-sm z-[400] transition-all">
+    <div class="bg-[#171a2b] border border-white/5 w-full max-w-sm rounded-[2.2rem] p-8 text-center shadow-2xl mx-4 transition-transform duration-300">
+        <div class="w-16 h-16 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto mb-6 border border-rose-500/20">
+            <i class="fas fa-user-times text-2xl animate-pulse"></i>
+        </div>
+        <h4 class="text-xl font-black text-white mb-2 uppercase tracking-wide">Delete User?</h4>
+        <p class="text-sm text-gray-400 font-bold mb-8">Are you sure you want to delete admin <span id="delete-username-display" class="text-indigo-400"></span>? This action is permanent.</p>
+        <div class="flex gap-4">
+            <button onclick="closeUserDeleteModal()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-2xl transition">Cancel</button>
+            <button onclick="confirmExecuteUserDelete()" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-2xl shadow-lg transition">Delete</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.safeRunSection('users', function() {
+        window.userToDeleteHolder = null;
+
+        window.fetchUsers = async function() {
+            try {
+                let res = await fetch('/api/users');
+                let users = await res.json();
+                let html = '';
+                users.forEach(u => {
+                    let roleColor = '';
+                    let badgeStyle = '';
+                    if (u.role === 'creator') {
+                        roleColor = 'border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]';
+                        badgeStyle = 'bg-rose-500/20 text-rose-400 border border-rose-500/30';
+                    } else if (u.role === 'owner') {
+                        roleColor = 'border-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.3)]';
+                        badgeStyle = 'bg-yellow-400/20 text-yellow-400 border border-yellow-400/30';
+                    } else {
+                        roleColor = 'border-indigo-400';
+                        badgeStyle = 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/10';
+                    }
+                    
+                    let activeLimitVal = u.active_limit || 0;
+                    
+                    let isCurrentUserCreator = currentUser && currentUser.role === 'creator';
+                    let isCurrentUserOwner = currentUser && currentUser.role === 'owner';
+
+                    let canEdit = false;
+                    if (isCurrentUserCreator) {
+                        canEdit = true;
+                    } else if (isCurrentUserOwner) {
+                        if (u.username === currentUser.username || u.role === 'admin') {
+                            canEdit = true;
+                        }
+                    }
+
+                    let canDelete = false;
+                    if (u.username !== currentUser.username && u.username !== 'creator' && u.role !== 'creator') {
+                        if (isCurrentUserCreator) {
+                            canDelete = true;
+                        } else if (isCurrentUserOwner) {
+                            if (u.role === 'admin') {
+                                canDelete = true;
+                            }
+                        }
+                    }
+
+                    let editBtnHtml = canEdit ? 
+                        `<button onclick="openUserModal('${u.username}', '${u.password}', '${u.name || ''}', '${u.pic || '902000003'}', ${u.limit}, '${u.role}', ${activeLimitVal})" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-xl text-xs transition"><i class="fas fa-edit mr-1"></i> Edit</button>` : '';
+
+                    let deleteBtnHtml = canDelete ? 
+                        `<button onclick="deleteUser('${u.username}')" class="flex-1 bg-rose-600/20 text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-500/30 font-bold py-2 rounded-xl text-xs transition"><i class="fas fa-trash"></i> Delete</button>` : '';
+
+                    html += `
+                    <div class="bg-[#1b1e2b]/80 border border-white/5 rounded-[2rem] p-5 relative overflow-hidden shadow-lg">
+                        <div class="absolute top-0 right-0 ${badgeStyle} text-[10px] text-white font-bold px-3 py-1 rounded-bl-xl uppercase">${u.role}</div>
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-12 h-12 rounded-full bg-black border-2 ${roleColor} overflow-hidden shadow-lg">
+                                <img src="https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/${u.pic || '902000003'}.png" class="w-full h-full object-cover">
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-base font-black text-white game-font truncate">${u.name || 'Unknown User'}</div>
+                                <div class="text-[10px] text-gray-500 font-mono mt-0.5">@${u.username} &nbsp;|&nbsp; Add Limit: <span class="text-white font-bold">${u.role === 'owner' || u.role === 'creator' ? '∞' : u.limit}</span></div>
+                                <div class="text-[9px] text-yellow-400 font-mono">Active Limit: <span class="text-white font-bold">${u.role === 'owner' || u.role === 'creator' ? '∞' : activeLimitVal}</span></div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            ${editBtnHtml}
+                            ${deleteBtnHtml}
+                        </div>
+                    </div>`;
+                });
+                document.getElementById('users-grid').innerHTML = html;
+            } catch(e) {
+                console.error("fetchUsers failed:", e);
+            }
+        };
+
+        window.deleteUser = function(username) {
+            window.userToDeleteHolder = username;
+            document.getElementById('delete-username-display').innerText = username;
+            const modal = document.getElementById('user-delete-modal');
+            if(modal) {
+                modal.classList.replace('hidden', 'flex');
+            }
+        };
+
+        window.closeUserDeleteModal = function() {
+            window.userToDeleteHolder = null;
+            const modal = document.getElementById('user-delete-modal');
+            if(modal) {
+                modal.classList.replace('flex', 'hidden');
+            }
+        };
+
+        window.confirmExecuteUserDelete = async function() {
+            const username = window.userToDeleteHolder;
+            if(!username) return;
+            
+            closeUserDeleteModal();
+            try {
+                let res = await fetch('/api/users/delete', { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({username}) 
+                });
+                let data = await res.json();
+                if(data.success) {
+                    showPopup("Success", `User @${username} deleted successfully.`, "success");
+                    fetchUsers();
+                } else {
+                    showPopup("Error", data.msg || "Failed to delete user.", "error");
+                }
+            } catch(e) {
+                showPopup("Error", "Network connection failed.", "error");
+                console.error("Failed to delete user:", e);
+            }
+        };
+
+        window.addEventListener('tabSwitched', function(e) {
+            if (e.detail.tab === 'users_tab') {
+                fetchUsers();
+            }
+        });
+
+        fetchUsers();
+    });
+</script>
+<!-- END OF FILE templates/sections/users.html -->

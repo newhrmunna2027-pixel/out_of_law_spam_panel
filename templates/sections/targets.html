@@ -1,0 +1,519 @@
+<!-- START OF FILE templates/sections/targets.html -->
+<div class="flex flex-col md:flex-row justify-between items-start bg-[#1B1E31]/40 border border-white/5 backdrop-blur-md p-5 rounded-[2.2rem] shadow-lg gap-4 mb-4 relative z-10 glass-card">
+    <div class="w-full md:w-2/3 flex flex-col gap-3">
+        <div class="relative w-full">
+            <i class="fas fa-search absolute left-4 top-4 text-gray-500"></i>
+            <input type="text" id="searchInput" placeholder="Search UID or Name..." onkeyup="targetRenderLimit=20; renderTargets()" class="w-full bg-[#0b0d17]/80 border border-white/10 text-white rounded-xl py-3 pl-11 pr-4 outline-none focus:border-indigo-400/70 transition font-bold shadow-inner">
+        </div>
+        <div class="relative w-full max-w-sm">
+            <button onclick="document.getElementById('userFilterDropdown').classList.toggle('hidden')" class="w-full bg-[#11131a]/80 border border-white/10 hover:border-indigo-400 text-gray-400 rounded-2xl px-4 py-3 text-sm font-bold flex justify-between items-center transition shadow-inner">
+                <span><i class="fas fa-filter mr-2 text-indigo-400"></i> Target by User: <span id="userFilterText" class="text-white ml-1 font-black">All Users</span></span>
+                <i class="fas fa-chevron-down text-xs"></i>
+            </button>
+            <div id="userFilterDropdown" class="hidden absolute left-0 right-0 top-full mt-2 bg-[#1b1e2b]/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
+                <div class="max-h-48 overflow-y-auto" id="userFilterList"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="w-full md:w-1/3 flex flex-col gap-2.5">
+        <button onclick="openAddTargetModal()" class="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-black px-6 py-3.5 rounded-2xl shadow-[0_4px_20px_rgba(16,185,129,0.3)] hover:shadow-[0_4px_25px_rgba(16,185,129,0.5)] hover:-translate-y-0.5 transition-all duration-300 uppercase tracking-wider h-[52px] text-sm">
+            + ADD TARGET
+        </button>
+        <button onclick="openDuoCheckerModal()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black px-6 py-3.5 rounded-2xl shadow-[0_4px_20px_rgba(37,99,235,0.3)] hover:shadow-[0_4px_25px_rgba(37,99,235,0.5)] hover:-translate-y-0.5 transition-all duration-300 uppercase tracking-wider h-[52px] text-sm flex items-center justify-center gap-2">
+            💞 CHECK DUO
+        </button>
+    </div>
+</div>
+
+<button onclick="window.toggleUserSummary()" class="text-xs font-black text-gray-400 hover:text-yellow-400 transition flex items-center gap-2 mb-4 bg-[#11131a]/60 px-4 py-2.5 rounded-xl border border-white/5 shadow">
+    <i id="summary-toggle-icon" class="fas fa-chevron-down"></i> <span id="summary-toggle-text">Show Users Target Summary</span>
+</button>
+
+<div id="target-summary-container" class="hidden bg-[#1B1E31]/40 border border-white/5 p-4 rounded-2xl shadow-lg mb-6 flex flex-wrap gap-3 transition-all duration-300">
+    <div class="text-sm font-black text-gray-500 w-full text-center">Loading User Usage Summary...</div>
+</div>
+
+<div class="flex flex-col gap-4">
+    <div id="targets-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    <button id="targets-load-more" onclick="loadMoreTargets()" class="hidden w-full text-center text-xs font-black text-yellow-500 bg-[#1B1E31]/30 hover:bg-[#1B1E31]/80 py-3.5 rounded-xl border border-white/5 hover:border-yellow-400/50 transition duration-300 tracking-widest uppercase">
+        <i class="fas fa-arrow-down mr-1"></i> Load More Targets...
+    </button>
+</div>
+
+<!-- Dynamic Duo Checker Popup Modal -->
+<div id="duo-checker-modal" class="fixed inset-0 hidden items-center justify-center bg-black/95 backdrop-blur-sm z-[300]">
+    <div class="bg-[#0f111a] border border-white/10 w-full max-w-[26rem] rounded-[2.5rem] shadow-2xl relative overflow-hidden p-6 max-h-[95vh] overflow-y-auto mx-4">
+        <!-- Close Button -->
+        <button onclick="closeDuoCheckerModal()" class="absolute top-5 right-5 text-gray-500 hover:text-white bg-gray-800 p-2 rounded-full transition z-20"><i class="fas fa-times"></i></button>
+        
+        <h3 class="text-lg font-black text-white uppercase tracking-widest mb-1 flex items-center gap-2">
+            <i class="fas fa-heart text-blue-500"></i> DYNAMIC DUO CHECKER
+        </h3>
+        <p class="text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-6">Instantly scrap in-game duo status and partner profile.</p>
+
+        <div class="space-y-4">
+            <div id="duo-input-area" class="space-y-4">
+                <input type="number" id="duo-target-uid" placeholder="Enter Player UID to Check" class="w-full bg-[#161925] border border-white/5 rounded-2xl p-3.5 text-base font-bold text-white outline-none focus:border-blue-500 placeholder-gray-600">
+                <button id="btn-run-duo-check" onclick="submitDuoCheck()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-wider transition-all shadow-lg">
+                    Check Partner
+                </button>
+            </div>
+
+            <!-- Loader status -->
+            <div id="duo-loading" class="hidden py-10 text-center text-blue-400 font-bold w-full">
+                <i class="fas fa-spinner fa-spin text-3xl mb-3"></i>
+                <div class="text-xs uppercase tracking-widest">CONNECTING GARENA GATEWAYS...</div>
+            </div>
+
+            <!-- Fallback notification -->
+            <div id="duo-fallback-message" class="hidden bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-xl p-4 text-center text-xs font-black uppercase tracking-wider">
+                <i class="fas fa-user-slash text-base mb-1 block"></i>
+                This player DUO Partner status is Hide.. Try other player
+            </div>
+
+            <!-- Duo details and dual profiles live card preview -->
+            <div id="duo-results" class="hidden space-y-4">
+                <div class="bg-[#161925] border border-white/5 rounded-3xl p-4 text-center shadow-inner">
+                    <span class="text-[9px] font-black text-gray-500 uppercase tracking-widest block mb-1">Duo Bond Information</span>
+                    <div class="grid grid-cols-3 gap-2 mt-2 text-xs font-bold font-mono">
+                        <div class="bg-[#0b0d17] p-2 rounded-2xl"><div class="text-gray-500 text-[8px] uppercase">Level</div><span id="duo-info-lvl" class="text-pink-400 font-black text-base">0</span></div>
+                        <div class="bg-[#0b0d17] p-2 rounded-2xl"><div class="text-gray-500 text-[8px] uppercase">Score</div><span id="duo-info-score" class="text-yellow-400 font-black text-base">0</span></div>
+                        <div class="bg-[#0b0d17] p-2 rounded-2xl"><div class="text-gray-500 text-[8px] uppercase">Active</div><span id="duo-info-days" class="text-emerald-400 font-black text-base">0D</span></div>
+                    </div>
+                    <div class="grid grid-cols-2 mt-2.5 text-[9px] text-gray-500 font-bold px-1">
+                        <div class="text-left">Bond Date: <span id="duo-info-date" class="text-white"></span></div>
+                        <div class="text-right">Status: <span id="duo-info-status" class="text-white"></span></div>
+                    </div>
+                </div>
+
+                <!-- Main Player Profile checked -->
+                <div id="duo-target-card" class="relative bg-[#13151f] rounded-3xl border border-white/5 shadow-lg">
+                    <div class="h-16 w-full bg-gradient-to-r from-blue-900 to-indigo-900 relative rounded-t-3xl overflow-hidden border-b-2 border-blue-500">
+                        <img id="duo-target-banner" src="" class="w-full h-full object-cover opacity-80 absolute inset-0">
+                        <div class="absolute right-2 bottom-2 text-white text-[10px] font-bold flex items-center gap-1 drop-shadow-md z-10"><i class="fas fa-thumbs-up"></i> <span id="duo-target-likes">0</span></div>
+                    </div>
+                    
+                    <div class="absolute top-[40px] left-1/2 transform -translate-x-1/2 z-20">
+                        <div class="w-[52px] h-[52px] rounded-xl border-2 border-blue-500 bg-black shadow-lg relative p-0.5">
+                            <div class="w-full h-full rounded-lg overflow-hidden">
+                                <img id="duo-target-avatar" src="" class="w-full h-full object-cover">
+                            </div>
+                            <div class="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full shadow whitespace-nowrap z-30">Lv.<span id="duo-target-level">0</span></div>
+                        </div>
+                    </div>
+
+                    <div class="pt-10 px-4 pb-4 relative z-10">
+                        <div class="text-center mb-2">
+                            <h5 id="duo-target-name" class="text-sm font-black text-white game-font">Target Name</h5>
+                            <div class="text-blue-400 text-[10px] font-bold font-mono">Checked UID: <span id="duo-target-uid-display"></span></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-y-1 text-[9px] text-gray-400 font-bold px-2">
+                            <div>Guild</div><div class="text-right text-blue-400 game-font text-[10px] truncate" id="duo-target-guild"></div>
+                            <div>Region</div><div class="text-right text-gray-300" id="duo-target-region"></div>
+                            <div>Created</div><div class="text-right text-gray-300 font-mono text-[9px]" id="duo-target-create"></div>
+                            <div>Last Login</div><div class="text-right text-emerald-400 font-mono text-[9px]" id="duo-target-login"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Animated heart connector -->
+                <div class="flex justify-center items-center my-[-10px] relative z-30">
+                    <div class="w-8 h-8 rounded-full bg-pink-600 border border-white/10 shadow-[0_0_15px_rgba(219,39,119,0.7)] flex items-center justify-center text-white text-xs animate-bounce cursor-default">
+                        💖
+                    </div>
+                </div>
+
+                <!-- Duo Partner Profile -->
+                <div id="duo-partner-card" class="relative bg-[#13151f] rounded-3xl border border-white/5 shadow-lg">
+                    <div class="h-16 w-full bg-gradient-to-r from-pink-900 to-rose-900 relative rounded-t-3xl overflow-hidden border-b-2 border-pink-500">
+                        <img id="duo-partner-banner" src="" class="w-full h-full object-cover opacity-80 absolute inset-0">
+                        <div class="absolute right-2 bottom-2 text-white text-[10px] font-bold flex items-center gap-1 drop-shadow-md z-10"><i class="fas fa-thumbs-up"></i> <span id="duo-partner-likes">0</span></div>
+                    </div>
+                    
+                    <div class="absolute top-[40px] left-1/2 transform -translate-x-1/2 z-20">
+                        <div class="w-[52px] h-[52px] rounded-xl border-2 border-pink-500 bg-black shadow-lg relative p-0.5">
+                            <div class="w-full h-full rounded-lg overflow-hidden">
+                                <img id="duo-partner-avatar" src="" class="w-full h-full object-cover">
+                            </div>
+                            <div class="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 bg-pink-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full shadow whitespace-nowrap z-30">Lv.<span id="duo-partner-level">0</span></div>
+                        </div>
+                    </div>
+
+                    <div class="pt-10 px-4 pb-4 relative z-10">
+                        <div class="text-center mb-2">
+                            <h5 id="duo-partner-name" class="text-sm font-black text-white game-font">Partner Name</h5>
+                            <div class="text-pink-400 text-[10px] font-bold font-mono">Partner UID: <span id="duo-partner-uid-display"></span></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-y-1 text-[9px] text-gray-400 font-bold px-2">
+                            <div>Guild</div><div class="text-right text-pink-400 game-font text-[10px] truncate" id="duo-partner-guild"></div>
+                            <div>Region</div><div class="text-right text-gray-300" id="duo-partner-region"></div>
+                            <div>Created</div><div class="text-right text-gray-300 font-mono text-[9px]" id="duo-partner-create"></div>
+                            <div>Last Login</div><div class="text-right text-emerald-400 font-mono text-[9px]" id="duo-partner-login"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.safeRunSection('targets', function() {
+        window.targetRenderLimit = 20;
+        window.selectedUserFilter = 'all';
+        window.deleteUidHolder = null;
+        let globalTimerInterval = null;
+
+        // 🚀 NEW: Delete Target Function bound securely inside the script to fix scoping
+        window.deleteTarget = async function() {
+            const uidToDelete = window.deleteUidHolder;
+            if(!uidToDelete) return;
+            
+            try {
+                let res = await fetch('/api/target/delete', { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({uid: uidToDelete}) 
+                });
+                let data = await res.json();
+                
+                if (data.success) {
+                    showPopup("Success", "Target protocol stopped cleanly.", "success");
+                    
+                    const modal = document.getElementById('delete-modal');
+                    if(modal) {
+                        modal.classList.add('hidden');
+                        modal.classList.remove('flex');
+                    }
+                    
+                    if (typeof window.fetchTargets === 'function') window.fetchTargets(); 
+                    if (typeof window.fetchDashboard === 'function') window.fetchDashboard();
+                } else {
+                    showPopup("Error Deleting", data.msg, "error");
+                }
+            } catch(e) {
+                showPopup("Network Error", "Could not process request.", "error");
+            }
+        };
+
+        window.toggleUserSummary = function() {
+            const container = document.getElementById('target-summary-container');
+            const icon = document.getElementById('summary-toggle-icon');
+            const text = document.getElementById('summary-toggle-text');
+            
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                icon.className = "fas fa-chevron-up text-indigo-400";
+                text.innerText = "Hide Users Target Summary";
+            } else {
+                container.classList.add('hidden');
+                icon.className = "fas fa-chevron-down";
+                text.innerText = "Show Users Target Summary";
+            }
+        };
+
+        window.fetchTargets = async function() {
+            try {
+                let res = await fetch('/api/targets'); 
+                if (res.status === 401) { 
+                    window.location.reload(); 
+                    return; 
+                }
+                window.allTargets = await res.json(); 
+                await populateUserFilter();
+                renderTargets(); 
+            } catch(e) {
+                console.error("Failed to fetch targets:", e);
+            }
+        };
+
+        window.populateUserFilter = async function() {
+            const list = document.getElementById('userFilterList');
+            const summaryContainer = document.getElementById('target-summary-container');
+            if(!list || !summaryContainer) return;
+
+            try {
+                let res = await fetch('/api/user_stats');
+                if (res.status === 401) { window.location.reload(); return; }
+                let userStats = await res.json();
+                
+                let html = `<div onclick="window.selectUserFilter('all', 'All Users')" class="px-4 py-3 hover:bg-[#232736] cursor-pointer text-sm font-bold text-white border-b border-white/5 transition">All Users</div>`;
+                let summaryHtml = `<div class="text-[10px] font-black text-gray-500 w-full mb-2 uppercase tracking-widest"><i class="fas fa-chart-bar text-indigo-400 mr-1"></i> Active Targets Usage Breakdown</div><div class="flex flex-wrap gap-2 w-full">`;
+
+                for(let username in userStats) {
+                    let u = userStats[username];
+                    let remainingDisplay = u.role === 'owner' || u.role === 'creator' ? '∞' : (u.limit - u.active);
+                    
+                    let infoStr = u.role === 'owner' || u.role === 'creator'
+                        ? `<span class="text-yellow-400 font-black">Added: ${u.active} | Owner</span>` 
+                        : `<span class="text-gray-500 font-bold">Added: <span class="text-white font-black">${u.active}</span> | Left: <span class="${remainingDisplay > 0 ? 'text-emerald-400' : 'text-rose-500'} font-black">${remainingDisplay}</span></span>`;
+
+                    html += `<div onclick="window.selectUserFilter('${username}', '${u.name}')" class="px-4 py-3 hover:bg-[#232736] cursor-pointer text-sm font-bold text-gray-400 hover:text-white transition flex justify-between items-center">
+                        <span>${u.name}</span>
+                        <span class="text-[10px] font-mono font-bold">${infoStr}</span>
+                    </div>`;
+
+                    let badgeColor = 'border-emerald-400/50 bg-emerald-400/10 text-emerald-400';
+                    if (u.role === 'creator') {
+                        badgeColor = 'border-rose-500/50 bg-rose-500/10 text-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.15)]';
+                    } else if (u.role === 'owner') {
+                        badgeColor = 'border-yellow-400/50 bg-yellow-400/10 text-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.15)]';
+                    }
+
+                    summaryHtml += `
+                        <div class="border ${badgeColor} px-3.5 py-2 rounded-2xl flex items-center gap-2 text-xs font-bold cursor-pointer hover:bg-black/20 transition shadow-lg" onclick="window.selectUserFilter('${username}', '${u.name}')">
+                            <span class="text-white game-font truncate max-w-[100px]">${u.name}</span>
+                            <span class="bg-black/50 px-1.5 py-0.5 rounded font-mono">${u.active} / ${u.role === 'owner' || u.role === 'creator' ? '∞' : u.limit}</span>
+                        </div>
+                    `;
+                }
+                summaryHtml += `</div>`;
+                list.innerHTML = html; 
+                summaryContainer.innerHTML = summaryHtml;
+            } catch(e) {
+                console.error("Populate User filter failed:", e);
+            }
+        };
+
+        window.selectUserFilter = function(username, name) {
+            window.selectedUserFilter = username;
+            document.getElementById('userFilterText').innerText = name;
+            document.getElementById('userFilterDropdown').classList.add('hidden');
+            window.targetRenderLimit = 20; 
+            renderTargets();
+        };
+
+        window.renderTargets = function() {
+            const grid = document.getElementById('targets-grid');
+            const loadMoreBtn = document.getElementById('targets-load-more');
+            if(!grid) return;
+
+            let term = document.getElementById('searchInput').value.toLowerCase().trim();
+            const targetsData = window.allTargets || [];
+            const activeFilter = window.selectedUserFilter || 'all';
+
+            let filtered = targetsData.filter(t => {
+                let matchTerm = t.uid.includes(term) || t.name.toLowerCase().includes(term);
+                let matchUser = activeFilter === 'all' || String(t.addedByUsername).toLowerCase().trim() === String(activeFilter).toLowerCase().trim();
+                return matchTerm && matchUser;
+            });
+            
+            filtered.sort((a, b) => (b.addTime || 0) - (a.addTime || 0));
+            let paginated = filtered.slice(0, window.targetRenderLimit);
+
+            if (paginated.length < filtered.length) {
+                loadMoreBtn.classList.remove('hidden');
+            } else {
+                loadMoreBtn.classList.add('hidden');
+            }
+
+            if(paginated.length === 0) { 
+                grid.innerHTML = '<div class="col-span-full p-10 text-center text-gray-500 font-bold bg-[#1B1E31]/40 border border-white/5 rounded-2xl">No targets found.</div>'; 
+                loadMoreBtn.classList.add('hidden');
+                return; 
+            }
+
+            grid.innerHTML = paginated.map(t => {
+                const hPicSrc = `https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/${t.headPic || '902000003'}.png`;
+                const reasonHtml = t.reason ? `<div class="text-black bg-indigo-400 font-black text-[9px] uppercase px-1.5 py-0.5 rounded-lg shadow truncate w-full max-w-[90px]" title="${t.reason}">R: ${t.reason}</div>` : '<div></div>';
+                
+                let roleColor = 'text-emerald-400';
+                if (t.addedByRole === 'creator') {
+                    roleColor = 'text-rose-400';
+                } else if (t.addedByRole === 'owner') {
+                    roleColor = 'text-yellow-400';
+                }
+                
+                let isOwner = currentUser && (currentUser.role === 'owner' || currentUser.role === 'creator');
+                let isAddedByUser = currentUser && t.addedByUsername === currentUser.username;
+                let canDelete = isOwner || isAddedByUser;
+                
+                let deleteBtnHtml = canDelete ? 
+                    `<button onclick="window.deleteUidHolder='${t.uid}'; document.getElementById('delete-modal').classList.replace('hidden','flex')" class="p-2 rounded-xl bg-[#1f2231]/80 border border-white/5 text-rose-400 hover:bg-rose-500 hover:text-white transition shadow"><i class="fas fa-trash text-sm"></i></button>` :
+                    `<button disabled class="p-2 rounded-xl bg-[#1f2231]/80 border border-white/5 text-gray-600 cursor-not-allowed" title="You cannot delete this target"><i class="fas fa-ban text-sm"></i></button>`;
+
+                let statusBadge = '';
+                if(t.status && t.status.toLowerCase().includes('paused')) {
+                    statusBadge = `<div class="absolute top-2 left-1/2 transform -translate-x-1/2 bg-rose-600 text-white text-[9px] font-black px-2 py-1 rounded shadow-lg animate-pulse uppercase tracking-widest z-20"><i class="fas fa-pause mr-1"></i>${t.status.toUpperCase()}</div>`;
+                } else {
+                    statusBadge = `<div class="absolute top-2 left-1/2 transform -translate-x-1/2 bg-indigo-500/20 border border-indigo-500/50 text-indigo-400 text-[9px] font-black px-2 py-1 rounded shadow uppercase tracking-widest z-20">ACTIVE</div>`;
+                }
+
+                return `
+                <div class="relative glass-card rounded-3xl overflow-hidden flex flex-col font-sans mb-1">
+                    ${statusBadge}
+                    <div class="h-8 bg-[#11131a]/60 border-b border-white/5 flex justify-between items-center px-3 relative">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-indigo-400"></div>
+                        <div class="ml-2 text-indigo-400 font-black italic tracking-widest text-[9px] uppercase">FREE FIRE <span class="text-white">MAX</span></div>
+                        <div class="text-gray-400 text-[9px] font-mono">By: <span class="${roleColor} font-black text-[10px] tracking-wider uppercase">${t.addedByName || 'System'}</span></div>
+                    </div>
+                    <div class="p-3.5 flex gap-4 relative bg-gradient-to-r from-[#1f2231]/30 to-[#151720]/30">
+                        <div class="absolute top-0 left-0 bottom-0 w-6 bg-indigo-400" style="clip-path: polygon(0 0, 100% 0, 0% 100%, 0 100%);"></div>
+                        <div class="relative z-10 flex flex-col items-center ml-1 cursor-pointer hover:scale-105 transition-transform" onclick="viewGenericProfile('${t.uid}', 'Target Profile')" title="View Profile">
+                            <div class="w-[70px] h-[70px] border-[3px] border-purple-800 bg-black p-0.5 shadow-lg relative rounded-2xl overflow-hidden">
+                                <img src="${hPicSrc}" class="w-full h-full object-cover">
+                            </div>
+                            <div class="text-indigo-400 text-[10px] font-black mt-1">Lv. ${t.level || 0}</div>
+                        </div>
+                        
+                        <div class="relative z-10 flex-1 flex flex-col justify-start min-w-0">
+                            <div class="flex items-center gap-1.5 mb-0.5">
+                                <span class="text-cyan-400 text-sm font-black leading-none">♂</span>
+                                <span class="text-sm font-black text-white tracking-wide game-font truncate">${t.name}</span>
+                            </div>
+                            <div class="text-indigo-400 text-[9px] font-bold truncate mb-1"><i class="fas fa-shield-alt text-gray-500"></i> ${t.guild || 'No Guild'}</div>
+                            
+                            <div class="text-right mt-auto flex justify-between items-end">
+                                <div class="text-[10px] text-gray-500 font-mono cursor-pointer hover:text-white transition" onclick="copyToClipboard('${t.uid}', this)" title="Click to Copy UID">UID: <span class="text-white font-bold">${t.uid}</span></div>
+                                <div class="text-white text-xs font-black flex items-center gap-1"><i class="fas fa-thumbs-up text-gray-400 text-xs"></i> ${t.liked || 0}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-[#11131a]/60 grid grid-cols-3 items-center px-3 py-2.5 border-t border-white/5">
+                        <div class="flex justify-start items-center">${reasonHtml}</div>
+                        <div class="flex items-center justify-center gap-3">
+                            <button onclick="viewGenericProfile('${t.uid}', 'Target Profile')" class="p-2 rounded-xl bg-[#1f2231]/85 border border-white/5 text-blue-400 hover:bg-blue-500 hover:text-white transition shadow" title="View Profile"><i class="fas fa-eye text-sm"></i></button>
+                            ${deleteBtnHtml}
+                        </div>
+                        <div class="flex justify-end items-center">
+                            <span class="countdown-cell font-mono font-black text-[9px] text-fuchsia-400 bg-fuchsia-900/10 border border-fuchsia-800/30 px-2 py-0.5 rounded" data-expire="${t.expireAt}">${formatTimeLeft(t.expireAt)}</span>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            if(globalTimerInterval) clearInterval(globalTimerInterval);
+            globalTimerInterval = setInterval(() => { 
+                document.querySelectorAll('.countdown-cell').forEach(c => { 
+                    const exp = c.getAttribute('data-expire'); 
+                    if(exp !== 'permanent') c.innerHTML = formatTimeLeft(exp); 
+                }); 
+            }, 1000);
+        };
+
+        window.loadMoreTargets = function() {
+            window.targetRenderLimit += 20;
+            renderTargets();
+        };
+
+        window.formatTimeLeft = function(expireTime) {
+            if(expireTime === 'permanent') return '∞ PERMANENT';
+            const diff = parseInt(expireTime) - Date.now();
+            if(diff <= 0) return 'EXPIRED';
+            const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const h = Math.floor((diff / (1000 * 60 * 60)) % 24).toString().padStart(2, '0');
+            const m = Math.floor((diff / 1000 / 60) % 60).toString().padStart(2, '0');
+            const s = Math.floor((diff / 1000) % 60).toString().padStart(2, '0');
+            return `${d}D ${h}:${m}:${s}`;
+        };
+
+        // --- Duo checker functions ---
+        window.openDuoCheckerModal = function() {
+            document.getElementById('duo-target-uid').value = '';
+            document.getElementById('duo-fallback-message').classList.add('hidden');
+            document.getElementById('duo-results').classList.add('hidden');
+            document.getElementById('duo-loading').classList.add('hidden');
+            document.getElementById('duo-input-area').classList.remove('hidden');
+            document.getElementById('duo-checker-modal').classList.replace('hidden', 'flex');
+        };
+
+        window.closeDuoCheckerModal = function() {
+            document.getElementById('duo-checker-modal').classList.replace('flex', 'hidden');
+        };
+
+        window.submitDuoCheck = async function() {
+            const uid = document.getElementById('duo-target-uid').value.trim();
+            if(!uid || uid.length < 5) {
+                showPopup("Invalid UID", "Please enter a valid player UID.", "error");
+                return;
+            }
+
+            document.getElementById('duo-input-area').classList.add('hidden');
+            document.getElementById('duo-loading').classList.remove('hidden');
+
+            try {
+                let res = await fetch('/api/duo/check', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({uid})
+                });
+                let data = await res.json();
+                
+                document.getElementById('duo-loading').classList.add('hidden');
+
+                if (data.success) {
+                    const duo = data.duo_info;
+                    const target = data.target_profile;
+                    const partner = data.partner_profile;
+
+                    document.getElementById('duo-info-lvl').innerText = duo.Level || '1';
+                    document.getElementById('duo-info-score').innerText = duo.Score || '0';
+                    document.getElementById('duo-info-days').innerText = (duo["Active Days"] || '0') + "D";
+                    document.getElementById('duo-info-date').innerText = duo["Formed On"] || 'N/A';
+                    document.getElementById('duo-info-status').innerText = duo.Status || 'Active';
+
+                    if (target) {
+                        const basic = target.basicInfo || {};
+                        const clan = target.clanBasicInfo || {};
+
+                        document.getElementById('duo-target-uid-display').innerText = uid;
+                        document.getElementById('duo-target-name').innerText = basic.nickname || 'Unknown';
+                        document.getElementById('duo-target-level').innerText = basic.level || '0';
+                        document.getElementById('duo-target-likes').innerText = basic.liked || '0';
+                        document.getElementById('duo-target-guild').innerText = clan.clanName || 'No Guild';
+                        document.getElementById('duo-target-region').innerText = basic.region || 'N/A';
+                        document.getElementById('duo-target-create').innerText = formatDateTime(basic.createAt);
+                        document.getElementById('duo-target-login').innerText = formatDateTime(basic.lastLoginAt);
+
+                        document.getElementById('duo-target-avatar').src = `https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/${basic.headPic || '902000003'}.png`;
+                        document.getElementById('duo-target-banner').src = `https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/${basic.bannerId || '901000001'}.png`;
+                    }
+
+                    if (partner) {
+                        const basic = partner.basicInfo || {};
+                        const clan = partner.clanBasicInfo || {};
+
+                        document.getElementById('duo-partner-uid-display').innerText = duo["Partner UID"];
+                        document.getElementById('duo-partner-name').innerText = basic.nickname || 'Unknown';
+                        document.getElementById('duo-partner-level').innerText = basic.level || '0';
+                        document.getElementById('duo-partner-likes').innerText = basic.liked || '0';
+                        document.getElementById('duo-partner-guild').innerText = clan.clanName || 'No Guild';
+                        document.getElementById('duo-partner-region').innerText = basic.region || 'N/A';
+                        document.getElementById('duo-partner-create').innerText = formatDateTime(basic.createAt);
+                        document.getElementById('duo-partner-login').innerText = formatDateTime(basic.lastLoginAt);
+
+                        document.getElementById('duo-partner-avatar').src = `https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/${basic.headPic || '902000003'}.png`;
+                        document.getElementById('duo-partner-banner').src = `https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/${basic.bannerId || '901000001'}.png`;
+                    } else {
+                        document.getElementById('duo-partner-uid-display').innerText = duo["Partner UID"];
+                        document.getElementById('duo-partner-name').innerText = "Private Profile";
+                        document.getElementById('duo-partner-level').innerText = "0";
+                        document.getElementById('duo-partner-likes').innerText = "0";
+                        document.getElementById('duo-partner-guild').innerText = "No Guild";
+                        document.getElementById('duo-partner-region').innerText = "N/A";
+                        document.getElementById('duo-partner-avatar').src = `https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/902000003.png`;
+                        document.getElementById('duo-partner-banner').src = `https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/901000001.png`;
+                    }
+
+                    document.getElementById('duo-results').classList.remove('hidden');
+                } else {
+                    document.getElementById('duo-fallback-message').classList.remove('hidden');
+                    document.getElementById('duo-results').classList.add('hidden');
+                }
+            } catch(e) {
+                showPopup("System Error", "Failed to resolve Garena Dynamic Duo handshake.", "error");
+                openDuoCheckerModal();
+            }
+        };
+
+        window.addEventListener('tabSwitched', function(e) {
+            if (e.detail.tab === 'targets') {
+                fetchTargets();
+            }
+        });
+
+        fetchTargets();
+    });
+</script>
+<!-- END OF FILE templates/sections/targets.html -->

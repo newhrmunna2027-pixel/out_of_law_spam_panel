@@ -1,0 +1,45 @@
+<!-- START OF FILE templates/sections/console.html -->
+<div id="console-modal" class="fixed inset-0 hidden items-center justify-center bg-black/90 backdrop-blur-sm z-[210] font-sans">
+    <div class="bg-[#171a2b]/95 border border-white/5 w-full max-w-lg rounded-[2.5rem] relative overflow-hidden p-6 mx-4 shadow-2xl backdrop-blur-xl">
+        <!-- Close Button -->
+        <button onclick="closeConsoleModal()" class="absolute top-5 right-5 text-gray-500 hover:text-white bg-gray-800/40 p-2 rounded-full transition z-20"><i class="fas fa-times"></i></button>
+        
+        <h3 class="text-white text-sm font-black uppercase tracking-widest mb-4 ml-2 flex items-center gap-2.5">
+            <i class="fas fa-terminal text-indigo-400"></i> Active Bots Console
+        </h3>
+        
+        <!-- Console Output Container -->
+        <div class="bg-[#0b0d17]/80 border border-white/10 rounded-2xl p-5 h-80 overflow-y-auto shadow-inner font-mono text-xs text-gray-300" id="console-box">
+            <div class="text-gray-500 italic p-2"><i class="fas fa-spinner fa-spin mr-2"></i> Loading Bot Status...</div>
+        </div>
+        
+        <div class="mt-4 flex justify-between items-center px-2 text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+            <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> Live updates active</div>
+            <button onclick="fetchDashboard()" class="text-indigo-400 hover:text-white transition font-black"><i class="fas fa-sync-alt mr-1"></i> Force Refresh</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.consoleModalOpen = false;
+    
+    window.openConsoleModal = function() {
+        window.consoleModalOpen = true;
+        const modal = document.getElementById('console-modal');
+        if(modal) {
+            modal.classList.replace('hidden', 'flex');
+        }
+        if(typeof fetchDashboard === 'function') {
+            fetchDashboard();
+        }
+    };
+
+    window.closeConsoleModal = function() {
+        window.consoleModalOpen = false;
+        const modal = document.getElementById('console-modal');
+        if(modal) {
+            modal.classList.replace('flex', 'hidden');
+        }
+    };
+</script>
+<!-- END OF FILE templates/sections/console.html -->

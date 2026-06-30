@@ -1,0 +1,36 @@
+<!-- START OF FILE templates/sections/profile_modal.html -->
+<div id="profile-modal" class="fixed inset-0 hidden items-center justify-center bg-black/90 backdrop-blur-sm z-[200] font-sans">
+    <div class="bg-[#1b1e2b]/90 border border-gray-800 w-full max-w-sm rounded-[2.5rem] relative overflow-hidden p-8 mx-4 shadow-2xl backdrop-blur-xl">
+        <button onclick="document.getElementById('profile-modal').classList.replace('flex', 'hidden')" class="absolute top-5 right-5 text-gray-500 hover:text-white bg-gray-800/40 p-2 rounded-full transition z-20"><i class="fas fa-times"></i></button>
+        
+        <div class="text-center mb-6">
+            <!-- 🚀 Wrapper changed from rounded-full to rounded-[1.8rem] to fit Garena square avatar perfectly -->
+            <div class="w-24 h-24 rounded-[1.8rem] border-4 {% if current_user.role == 'creator' %}border-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.45)]{% elif current_user.role == 'owner' %}border-yellow-400 shadow-[0_0_20px_rgba(234,179,8,0.45)]{% else %}border-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.4)]{% endif %} bg-black flex items-center justify-center mx-auto mb-3 overflow-hidden">
+                <img src="https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/{{ current_user.pic | default('902000003') }}.png" class="w-full h-full object-cover rounded-[1.5rem]">
+            </div>
+            <h3 class="text-xl font-black text-white capitalize game-font truncate w-full">{{ current_user.name | default('Unknown') }}</h3>
+            <div class="text-gray-500 font-mono text-xs mt-1">@{{ current_user.username }}</div>
+            <span class="text-[10px] font-black px-2.5 py-1 bg-gray-800 text-gray-300 rounded-lg uppercase tracking-widest mt-2.5 inline-block">{{ current_user.role }}</span>
+        </div>
+
+        <div class="space-y-3 bg-[#11131a] p-4 rounded-xl border border-gray-800 text-sm">
+            <div class="flex justify-between items-center border-b border-gray-800 pb-2.5">
+                <span class="text-gray-500 font-bold uppercase text-[10px] tracking-wider">Password</span>
+                <span class="text-white font-mono tracking-widest text-xs select-all">{{ current_user.password }}</span>
+            </div>
+            <div class="flex justify-between items-center border-b border-gray-800 pb-2.5">
+                <span class="text-gray-500 font-bold uppercase text-[10px] tracking-wider">Assigned Target Limit</span>
+                <span class="text-yellow-400 font-black">{% if current_user.role in ['owner', 'creator'] %}∞{% else %}{{ current_user.limit }}{% endif %}</span>
+            </div>
+            <div class="flex justify-between items-center border-b border-gray-800 pb-2.5">
+                <span class="text-gray-500 font-bold uppercase text-[10px] tracking-wider">Usable Limit (by Bots)</span>
+                <span class="text-blue-400 font-black" id="profile-usable-limit">{% if current_user.role in ['owner', 'creator'] %}∞{% else %}0{% endif %}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-gray-500 font-bold uppercase text-[10px] tracking-wider">Total Targets In Use</span>
+                <span class="text-emerald-400 font-black" id="p-usage">0</span>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- END OF FILE templates/sections/profile_modal.html -->

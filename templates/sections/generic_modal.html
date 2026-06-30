@@ -1,0 +1,95 @@
+<!-- templates/sections/generic_modal.html -->
+<div id="generic-modal" class="fixed inset-0 hidden items-center justify-center bg-black/95 backdrop-blur-md z-[300]">
+    <div class="bg-[#0f111a] border border-white/10 w-full max-w-[26rem] rounded-[2.5rem] shadow-2xl relative overflow-hidden p-6 mx-4">
+        <button onclick="document.getElementById('generic-modal').classList.replace('flex', 'hidden')" class="absolute top-5 right-5 text-gray-500 hover:text-white bg-gray-800 p-2 rounded-full transition z-20"><i class="fas fa-times"></i></button>
+        <h3 class="text-xl font-black text-indigo-400 uppercase tracking-widest mb-1" id="gm-title">PROFILE VIEWER</h3>
+        <p class="text-[10px] text-gray-400 uppercase font-bold mb-4" id="gm-subtitle"></p>
+        
+        <div id="gm-preview" class="relative bg-[#13151f] rounded-[2.2rem] overflow-hidden border border-white/5 shadow-lg min-h-[250px] flex items-center justify-center">
+            <!-- Data dynamically loaded via JS -->
+        </div>
+    </div>
+</div>
+
+<script>
+    window.viewGenericProfile = async function(uid, source) {
+        if(!uid || uid === "N/A" || uid === "0") return;
+        document.getElementById('generic-modal').classList.replace('hidden', 'flex');
+        document.getElementById('gm-subtitle').innerText = "Source: " + source;
+        const c = document.getElementById('gm-preview');
+        c.innerHTML = '<div class="p-10 text-center text-indigo-400 font-bold w-full"><i class="fas fa-spinner fa-spin text-3xl mb-3"></i><br>Fetching Data...</div>';
+        
+        try {
+            const res = await fetch('/api/fetch_profile', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                // 🚀 FIXED: save is now TRUE! This forces the server to overwrite the DB with new data.
+                body: JSON.stringify({uid: uid, save: true, force: true}) 
+            }); 
+            const d = await res.json();
+            
+            if(d.success) {
+                const basic = d.data?.basicInfo || {}; const clan = d.data?.clanBasicInfo || {}; const social = d.data?.socialInfo || {};
+                let hPicId = basic.headPic || "902000003"; let bannerId = basic.bannerId || "901000001";
+                
+                const rarity = window.getAvatarRarityColor(hPicId);
+
+                c.innerHTML = `<div class="w-full">
+                    <div class="h-28 w-full bg-gradient-to-r from-indigo-900 to-purple-900 relative border-b-2 ${rarity.border}">
+                        <img src="https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/${bannerId}.png" class="w-full h-full object-cover opacity-80 absolute inset-0">
+                        <div class="absolute right-3 top-3 text-white text-[10px] font-black flex items-center gap-1.5 z-10 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-white/5 shadow-md">
+                            <i class="fas fa-thumbs-up text-indigo-400"></i> <span>${basic.liked || 0}</span>
+                        </div>
+                        
+                        <div class="absolute bottom-[-24px] left-1/2 transform -translate-x-1/2 z-20">
+                            <div class="w-20 h-20 rounded-2xl bg-[#11131a] p-1 border-[3px] ${rarity.border} ${rarity.glow} relative">
+                                <div class="w-full h-full rounded-xl overflow-hidden">
+                                    <img src="https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/${hPicId}.png" class="w-full h-full object-cover">
+                                </div>
+                                <span class="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 ${rarity.badge} font-black text-[9px] px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap z-30">
+                                    Lv.${basic.level || 0}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="px-6 pb-6 pt-8 bg-[#0f111a]/95 text-center rounded-b-[2.2rem]">
+                        <h4 class="text-xl font-black text-white game-font">${basic.nickname || 'Unknown'}</h4>
+                        <div class="text-indigo-400 text-xs font-bold mt-1 font-mono tracking-widest bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-xl inline-block shadow-inner cursor-pointer" onclick="window.copyToClipboard('${uid}', this)" title="Click to Copy UID">UID: <span>${uid}</span></div>
+                        
+                        <div class="grid grid-cols-2 gap-y-3 gap-x-2 text-[11px] text-gray-400 font-bold px-1 mt-6 border-t border-white/5 pt-4">
+                            <div class="text-left flex items-center gap-1.5"><i class="fas fa-shield-alt text-indigo-500/70"></i> Guild Name</div>
+                            <div class="text-right text-indigo-400 game-font text-xs truncate">${clan.clanName || "No Guild"}</div>
+                            
+                            <div class="text-left flex items-center gap-1.5"><i class="fas fa-fingerprint text-indigo-500/70"></i> Guild ID</div>
+                            <div class="text-right text-white font-mono cursor-pointer hover:text-indigo-400 truncate" onclick="window.copyToClipboard('${clan.clanId || ""}', this)" title="Click to Copy Guild ID">${clan.clanId || "N/A"}</div>
+                            
+                            <div class="text-left flex items-center gap-1.5"><i class="fas fa-crown text-cyan-500/70"></i> Leader UID</div>
+                            <div class="text-right text-cyan-400 font-mono cursor-pointer hover:underline truncate" onclick="viewGenericProfile('${clan.captainId}', 'Leader Profile')" title="View Leader Profile">${clan.captainId || "N/A"}</div>
+                            
+                            <div class="text-left flex items-center gap-1.5"><i class="fas fa-globe text-indigo-500/70"></i> Region</div>
+                            <div class="text-right text-gray-300">${basic.region || 'N/A'}</div>
+                            
+                            <div class="text-left flex items-center gap-1.5"><i class="fas fa-calendar-alt text-emerald-500/70"></i> Created</div>
+                            <div class="text-right text-gray-300 font-mono text-[10px]">${formatDateTime(basic.createAt)}</div>
+                            
+                            <div class="text-left flex items-center gap-1.5"><i class="fas fa-clock text-rose-500/70"></i> Last Login</div>
+                            <div class="text-right text-emerald-400 font-mono text-[10px]">${formatDateTime(basic.lastLoginAt)}</div>
+                        </div>
+                        
+                        <div class="mt-5 bg-black/60 p-3.5 rounded-2xl text-xs font-bold border-l-2 border-indigo-400 text-center ff-sig-font w-full break-words whitespace-normal overflow-hidden shadow-inner text-gray-300 border border-white/5">
+                            ${parseFFSignature(social.signature || "No Signature")}
+                        </div>
+                    </div>
+                </div>`;
+                
+                // 🚀 DYNAMIC REFRESH: Tells the background tab to refresh data so updated name/levels appear
+                if (typeof window.fetchTargets === 'function') window.fetchTargets();
+                if (typeof window.fetchInfo === 'function') window.fetchInfo();
+                if (typeof window.fetchData === 'function') window.fetchData();
+                
+            } else c.innerHTML = `<div class="p-10 text-center text-rose-500 font-bold w-full">${d.msg || 'Error Loading Data'}</div>`;
+        } catch(e) { c.innerHTML = '<div class="p-10 text-center text-rose-500 font-bold w-full">Network error.</div>'; }
+    };
+</script>
+<!-- END OF FILE templates/sections/generic_modal.html -->

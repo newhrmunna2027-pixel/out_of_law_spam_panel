@@ -1,0 +1,166 @@
+<!-- START OF FILE templates/sections/access.html -->
+<div class="space-y-6">
+    <h2 class="text-xl font-black text-white uppercase tracking-widest flex items-center gap-2">
+        <i class="fas fa-shield-alt text-indigo-400 animate-pulse"></i> SYSTEM ACCESS MANAGEMENT
+    </h2>
+
+    <!-- Live Counters Header -->
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-4 rounded-2xl text-center shadow">
+            <span class="text-xs text-gray-400 block font-bold uppercase">Tracker Pool</span>
+            <span class="text-2xl font-black text-cyan-400 animate-pulse" id="live-cnt-tracker">0</span>
+        </div>
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-4 rounded-2xl text-center shadow">
+            <span class="text-xs text-gray-400 block font-bold uppercase">Attack Pool</span>
+            <span class="text-2xl font-black text-fuchsia-400 animate-pulse" id="live-cnt-attacker">0</span>
+        </div>
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-4 rounded-2xl text-center shadow">
+            <span class="text-xs text-gray-400 block font-bold uppercase">API Active</span>
+            <span class="text-2xl font-black text-yellow-400 animate-pulse" id="live-cnt-api">0</span>
+        </div>
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-4 rounded-2xl text-center shadow">
+            <span class="text-xs text-gray-400 block font-bold uppercase">Stock</span>
+            <span class="text-2xl font-black text-green-400 animate-pulse" id="live-cnt-stock">0</span>
+        </div>
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-4 rounded-2xl text-center shadow">
+            <span class="text-xs text-gray-400 block font-bold uppercase">Total Slots</span>
+            <span class="text-2xl font-black text-white" id="live-cnt-total">0</span>
+        </div>
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-4 rounded-2xl text-center shadow">
+            <span class="text-xs text-gray-400 block font-bold uppercase">Allocated</span>
+            <span class="text-2xl font-black text-emerald-400" id="live-cnt-allocated">0</span>
+        </div>
+    </div>
+
+    <!-- Limit configurations & user checks -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Global limit config -->
+        <div class="bg-[#11131a]/80 p-6 rounded-[2rem] border border-white/5">
+            <h3 class="text-sm font-black text-white uppercase tracking-wider mb-4"><i class="fas fa-edit text-indigo-400 mr-1"></i> Edit Web Limit</h3>
+            <div class="flex gap-4">
+                <input type="number" id="access-global-limit-input" class="bg-[#0b0d17] border border-white/10 text-white font-bold p-3.5 rounded-2xl outline-none focus:border-indigo-400 w-full transition">
+                <button onclick="saveGlobalWebLimit()" class="bg-indigo-500 hover:bg-indigo-400 text-white font-black px-6 py-3 rounded-2xl transition uppercase tracking-wider whitespace-nowrap">Save Limit</button>
+            </div>
+        </div>
+
+        <!-- Check User capacity allocations -->
+        <div class="bg-[#11131a]/80 p-6 rounded-[2rem] border border-white/5">
+            <h3 class="text-sm font-black text-white uppercase tracking-wider mb-4"><i class="fas fa-user-cog text-cyan-400 mr-1"></i> Check User Access</h3>
+            <div class="flex gap-4">
+                <input type="text" id="access-username-input" placeholder="Enter Login Username ID" class="bg-[#0b0d17] border border-white/10 text-white font-bold p-3.5 rounded-2xl outline-none focus:border-cyan-400 w-full transition">
+                <button onclick="checkUserAccessCapacity()" class="bg-cyan-500 hover:bg-cyan-400 text-white font-black px-6 py-3 rounded-2xl transition uppercase tracking-wider whitespace-nowrap">Check</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CAPACITY SLOTS MODAL -->
+<div id="capacity-modal" class="fixed inset-0 hidden items-center justify-center bg-black/90 backdrop-blur-sm z-[200]">
+    <div class="bg-[#1b1e2b] border border-white/5 w-full max-w-sm rounded-[2.2rem] p-6 relative mx-4 shadow-2xl">
+        <button onclick="document.getElementById('capacity-modal').classList.replace('flex', 'hidden')" class="absolute top-4 right-4 text-gray-500 hover:text-white transition"><i class="fas fa-times"></i></button>
+        <h3 class="text-xl font-black text-white uppercase mb-4 tracking-widest">ALLOCATED SLOTS LIMIT</h3>
+        
+        <div class="space-y-4">
+            <div>
+                <p class="text-xs text-gray-400 font-bold uppercase">User:</p>
+                <p class="text-lg font-black text-indigo-400" id="cap-modal-user">None</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-400 font-bold mb-2 uppercase">Set Capacity Limit</p>
+                <div class="flex items-center gap-3">
+                    <button onclick="adjustCapValue(-1)" class="bg-rose-500/10 text-rose-400 border border-rose-500/20 p-3 rounded-xl w-12 font-black text-xl">-</button>
+                    <input type="number" id="cap-modal-limit" class="bg-[#11131a] border border-gray-700 text-white font-black text-center p-3.5 rounded-xl w-full text-lg">
+                    <button onclick="adjustCapValue(1)" class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 p-3 rounded-xl w-12 font-black text-xl">+</button>
+                </div>
+            </div>
+            <button onclick="saveUserCapacityLimit()" class="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-black py-4 rounded-2xl transition uppercase tracking-wider text-xs">Save Adjustments</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.safeRunSection('access', function() {
+        
+        window.fetchAccessMetrics = async function() {
+            try {
+                let res = await fetch('/api/access/metrics');
+                if (res.status === 401) return;
+                let data = await res.json();
+                
+                document.getElementById('live-cnt-tracker').innerText = data.bot_count;
+                document.getElementById('live-cnt-attacker').innerText = data.vv_count;
+                document.getElementById('live-cnt-api').innerText = data.api_count;
+                document.getElementById('live-cnt-stock').innerText = data.stock_count;
+                document.getElementById('live-cnt-total').innerText = data.total_slots;
+                document.getElementById('live-cnt-allocated').innerText = data.used_slots;
+                document.getElementById('access-global-limit-input').value = data.global_limit;
+            } catch(e) {
+                console.error(e);
+            }
+        };
+
+        window.saveGlobalWebLimit = async function() {
+            let limit = document.getElementById('access-global-limit-input').value;
+            let res = await fetch('/api/access/update_limit', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({global_limit: limit})
+            });
+            let data = await res.json();
+            if(data.success) {
+                showPopup("Success", "Global Limit adjusted inside limit.json!", "success");
+                fetchAccessMetrics();
+            }
+        };
+
+        window.checkUserAccessCapacity = async function() {
+            let uname = document.getElementById('access-username-input').value.trim();
+            if(!uname) return;
+            
+            let res = await fetch('/api/access/check_user', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({username: uname})
+            });
+            let data = await res.json();
+            if(data.success) {
+                document.getElementById('cap-modal-user').innerText = `\${data.name} (@\${data.username})`;
+                document.getElementById('cap-modal-limit').value = data.limit;
+                window.capActiveUser = data.username;
+                document.getElementById('capacity-modal').classList.replace('hidden', 'flex');
+            } else {
+                showPopup("Error", data.msg, "error");
+            }
+        };
+
+        window.adjustCapValue = function(val) {
+            let el = document.getElementById('cap-modal-limit');
+            let current = parseInt(el.value) || 0;
+            el.value = Math.max(0, current + val);
+        };
+
+        window.saveUserCapacityLimit = async function() {
+            let limit = document.getElementById('cap-modal-limit').value;
+            let res = await fetch('/api/access/save_user_limit', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: window.capActiveUser, limit: limit})
+            });
+            let data = await res.json();
+            if(data.success) {
+                document.getElementById('capacity-modal').classList.replace('flex', 'hidden');
+                showPopup("Success", "User capacity limits adjusted!", "success");
+                fetchAccessMetrics();
+            }
+        };
+
+        window.addEventListener('tabSwitched', function(e) {
+            if (e.detail.tab === 'access_tab') {
+                fetchAccessMetrics();
+            }
+        });
+
+        fetchAccessMetrics();
+    });
+</script>
+<!-- END OF FILE templates/sections/access.html -->

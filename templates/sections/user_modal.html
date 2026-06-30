@@ -1,0 +1,108 @@
+<!-- START OF FILE templates/sections/user_modal.html -->
+<div id="user-modal" class="fixed inset-0 hidden items-center justify-center bg-black/90 backdrop-blur-sm z-[200] font-sans">
+    <div class="bg-[#1b1e2b] border border-gray-800 w-full max-w-md rounded-[2.5rem] p-6 mx-4 shadow-2xl relative">
+        <button onclick="document.getElementById('user-modal').classList.replace('flex', 'hidden')" class="absolute top-4 right-4 text-gray-500 hover:text-white transition"><i class="fas fa-times"></i></button>
+        <h3 class="text-xl font-black text-white uppercase mb-4" id="um-title">User Settings</h3>
+        
+        <div class="grid grid-cols-2 gap-4">
+            <div class="col-span-2 sm:col-span-1">
+                <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Display Name</label>
+                <input type="text" id="um-name" class="w-full bg-[#11131a] border border-gray-700 text-white rounded-2xl p-3 text-sm font-bold focus:border-indigo-500 outline-none">
+            </div>
+            <div class="col-span-2 sm:col-span-1">
+                <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Avatar ID (FF Icon)</label>
+                <input type="number" id="um-pic" placeholder="e.g. 902000003" class="w-full bg-[#11131a] border border-gray-700 text-white rounded-2xl p-3 text-sm font-bold focus:border-indigo-500 outline-none">
+            </div>
+            <div class="col-span-2 sm:col-span-1">
+                <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Username (Login ID)</label>
+                <input type="text" id="um-username" class="w-full bg-[#11131a] border border-gray-700 text-white rounded-2xl p-3 text-sm font-bold focus:border-indigo-500 outline-none">
+            </div>
+            <div class="col-span-2 sm:col-span-1">
+                <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Password</label>
+                <input type="text" id="um-password" class="w-full bg-[#11131a] border border-gray-700 text-white rounded-2xl p-3 text-sm font-bold focus:border-indigo-500 outline-none">
+            </div>
+            <!-- ADD UID LIMIT (limit) -->
+            <div class="col-span-2 sm:col-span-1">
+                <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Add Target Limit</label>
+                <input type="number" id="um-limit" class="w-full bg-[#11131a] border border-gray-700 text-white rounded-2xl p-3 text-sm font-bold focus:border-indigo-500 outline-none">
+            </div>
+            <!-- ACTIVE USABLE LIMIT (active_limit) -->
+            <div class="col-span-2 sm:col-span-1">
+                <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Active Usable Limit</label>
+                <input type="number" id="um-active-limit" class="w-full bg-[#11131a] border border-gray-700 text-white rounded-2xl p-3 text-sm font-bold focus:border-indigo-500 outline-none">
+            </div>
+            <div class="col-span-2 sm:col-span-1">
+                <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Role</label>
+                <select id="um-role" class="w-full bg-[#11131a] border border-gray-700 text-white rounded-2xl p-3.5 text-sm font-bold outline-none focus:border-indigo-500">
+                    <!-- Options populated dynamically -->
+                </select>
+            </div>
+        </div>
+        <button onclick="saveUser()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-4 rounded-2xl mt-6 transition shadow-lg tracking-widest uppercase text-xs">SAVE USER</button>
+    </div>
+</div>
+
+<script>
+    window.openUserModal = function(u='', p='', name='', pic='902000003', l=50, r='admin', al=0) {
+        document.getElementById('um-username').value = u;
+        document.getElementById('um-username').disabled = (u === 'owner' || u === 'creator'); 
+        document.getElementById('um-password').value = p;
+        document.getElementById('um-name').value = name;
+        document.getElementById('um-pic').value = pic;
+        document.getElementById('um-limit').value = l;
+        document.getElementById('um-active-limit').value = al; 
+        
+        let roleSelect = document.getElementById('um-role');
+        roleSelect.innerHTML = '';
+        
+        let adminOpt = document.createElement('option');
+        adminOpt.value = 'admin';
+        adminOpt.innerText = 'Admin';
+        roleSelect.appendChild(adminOpt);
+
+        if (currentUser && currentUser.role === 'creator') {
+            let ownerOpt = document.createElement('option');
+            ownerOpt.value = 'owner';
+            ownerOpt.innerText = 'Owner';
+            roleSelect.appendChild(ownerOpt);
+        }
+
+        if (r === 'creator') {
+            let creatorOpt = document.createElement('option');
+            creatorOpt.value = 'creator';
+            creatorOpt.innerText = 'Creator';
+            creatorOpt.disabled = true;
+            roleSelect.appendChild(creatorOpt);
+        }
+
+        roleSelect.value = r;
+        document.getElementById('user-modal').classList.replace('hidden', 'flex');
+    };
+
+    window.saveUser = async function() {
+        let payload = {
+            username: document.getElementById('um-username').value,
+            password: document.getElementById('um-password').value,
+            name: document.getElementById('um-name').value,
+            pic: document.getElementById('um-pic').value,
+            limit: document.getElementById('um-limit').value,
+            active_limit: document.getElementById('um-active-limit').value, 
+            role: document.getElementById('um-role').value
+        };
+        try {
+            let res = await fetch('/api/users/save', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            let data = await res.json();
+            if(data.success) {
+                document.getElementById('user-modal').classList.replace('flex', 'hidden');
+                if (typeof fetchUsers === 'function') {
+                    fetchUsers();
+                }
+            } else {
+                alert(data.msg);
+            }
+        } catch(e) {
+            console.error("Failed to save user:", e);
+        }
+    };
+</script>
+<!-- END OF FILE templates/sections/user_modal.html -->

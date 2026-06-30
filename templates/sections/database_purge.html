@@ -1,0 +1,150 @@
+<!-- START OF FILE templates/sections/database_purge.html -->
+<div class="space-y-6">
+    <h2 class="text-xl font-black text-white uppercase tracking-widest flex items-center gap-2">
+        <i class="fas fa-database text-rose-500"></i> DATABASE PURGE CONTROL
+    </h2>
+    <p class="text-xs text-gray-500 font-bold uppercase tracking-wider">
+        সিলেক্টেড ডাটাবেজ টেবিল বা ক্যাটাগরিগুলো ড্যাশবোর্ড থেকে সরাসরি রিসেট বা মুছে দেওয়ার সেন্ট্রাল প্যানেল।
+    </p>
+
+    <!-- Grid Layout of Purge Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Card: Active Targets -->
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-5 rounded-[2rem] flex justify-between items-center hover:border-rose-500/20 transition-all duration-300">
+            <div>
+                <h4 class="text-sm font-black text-white uppercase tracking-wider flex items-center gap-1.5"><i class="fas fa-crosshairs text-rose-400"></i> Active Targets Queue</h4>
+                <p class="text-[10px] text-gray-500 font-bold mt-1">সমস্ত সচল টার্গেট এবং ক্যাশড প্রোফাইল ডাটাবেজ থেকে মুছে ফেলা হবে।</p>
+            </div>
+            <button onclick="confirmPurgeAction('active')" class="bg-rose-600/10 hover:bg-rose-600 text-rose-500 border border-rose-500/20 font-black px-5 py-3 rounded-2xl transition shadow-lg text-xs uppercase">PURGE</button>
+        </div>
+        <!-- Card: Stock -->
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-5 rounded-[2rem] flex justify-between items-center hover:border-rose-500/20 transition-all duration-300">
+            <div>
+                <h4 class="text-sm font-black text-white uppercase tracking-wider flex items-center gap-1.5"><i class="fas fa-layer-group text-rose-400"></i> Stock Accounts</h4>
+                <p class="text-[10px] text-gray-500 font-bold mt-1">স্টক বা স্টক ব্যাকআপ ফাইলের সমস্ত ডাটা মুছে ফেলা হবে।</p>
+            </div>
+            <button onclick="confirmPurgeAction('stock')" class="bg-rose-600/10 hover:bg-rose-600 text-rose-500 border border-rose-500/20 font-black px-5 py-3 rounded-2xl transition shadow-lg text-xs uppercase">PURGE</button>
+        </div>
+        <!-- Card: API -->
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-5 rounded-[2rem] flex justify-between items-center hover:border-rose-500/20 transition-all duration-300">
+            <div>
+                <h4 class="text-sm font-black text-white uppercase tracking-wider flex items-center gap-1.5"><i class="fas fa-cloud text-rose-400"></i> API Accounts</h4>
+                <p class="text-[10px] text-gray-500 font-bold mt-1">এপিআই সার্ভারের জন্য ব্যবহৃত সব অ্যাকাউন্ট ডিলিট হবে।</p>
+            </div>
+            <button onclick="confirmPurgeAction('api')" class="bg-rose-600/10 hover:bg-rose-600 text-rose-500 hover:text-white border border-rose-500/30 font-black px-4 py-2.5 rounded-xl transition text-xs uppercase tracking-wider">Purge</button>
+        </div>
+
+        <!-- Card: Tracker Bots -->
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-5 rounded-[2rem] flex justify-between items-center hover:border-rose-500/20 transition-all duration-300">
+            <div>
+                <h4 class="text-sm font-black text-white uppercase tracking-wider flex items-center gap-1.5"><i class="fas fa-search text-rose-400"></i> Tracker Bots (bot.json)</h4>
+                <p class="text-[10px] text-gray-500 font-bold mt-1">সবগুলো লাইভ ট্র্যাকার ম্যাপার অ্যাকাউন্ট ডাটাবেজ থেকে মুছে ফেলা হবে।</p>
+            </div>
+            <button onclick="confirmPurgeAction('bot')" class="bg-rose-600/10 hover:bg-rose-600 text-rose-500 border border-rose-500/20 font-black px-4 py-2.5 rounded-xl transition text-xs uppercase tracking-wider">Purge</button>
+        </div>
+
+        <!-- Card: Attack Bots -->
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-5 rounded-[2rem] flex justify-between items-center hover:border-rose-500/20 transition-all duration-300">
+            <div>
+                <h4 class="text-sm font-black text-white uppercase tracking-wider flex items-center gap-1.5"><i class="fas fa-bolt text-rose-400"></i> Attacker Bots (vv.json)</h4>
+                <p class="text-[10px] text-gray-500 font-bold mt-1">সবগুলো লাইভ অ্যাটাক বট অ্যাকাউন্ট ডাটাবেজ থেকে মুছে ফেলা হবে।</p>
+            </div>
+            <button onclick="confirmPurgeAction('vv')" class="bg-rose-600/10 hover:bg-rose-600 text-rose-500 border border-rose-500/20 font-black px-4 py-2.5 rounded-xl transition text-xs uppercase tracking-wider">Purge</button>
+        </div>
+
+        <!-- Card: Attack Distribution Map (targets.txt) -->
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-5 rounded-[2rem] flex justify-between items-center hover:border-rose-500/20 transition-all duration-300">
+            <div>
+                <h4 class="text-sm font-black text-white uppercase tracking-wider flex items-center gap-1.5"><i class="fas fa-map text-rose-400"></i> Attack Distribution Map</h4>
+                <p class="text-[10px] text-gray-500 font-bold mt-1">অ্যাটাকার বটের ভাগে বন্টন করা targets.txt ডাটা সম্পূর্ণ রিসেট হবে।</p>
+            </div>
+            <button onclick="confirmPurgeAction('targets')" class="bg-rose-600/10 hover:bg-rose-600 text-rose-500 border border-rose-500/20 font-black px-4 py-2.5 rounded-xl transition text-xs uppercase tracking-wider">Purge</button>
+        </div>
+
+        <!-- Card: Tracker Distribution Map (check.txt) -->
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-5 rounded-[2rem] flex justify-between items-center hover:border-rose-500/20 transition-all duration-300">
+            <div>
+                <h4 class="text-sm font-black text-white uppercase tracking-wider flex items-center gap-1.5"><i class="fas fa-tasks text-rose-400"></i> Tracker Distribution Map</h4>
+                <p class="text-[10px] text-gray-500 font-bold mt-1">ট্র্যাকার বটের ভাগে বন্টন করা check.txt ডাটা সম্পূর্ণ রিসেট হবে।</p>
+            </div>
+            <button onclick="confirmPurgeAction('check')" class="bg-rose-600/10 hover:bg-rose-600 text-rose-500 border border-rose-500/20 font-black px-4 py-2.5 rounded-xl transition text-xs uppercase tracking-wider">Purge</button>
+        </div>
+
+        <!-- Card: Recorded Leaders -->
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-5 rounded-[2rem] flex justify-between items-center hover:border-rose-500/20 transition-all duration-300">
+            <div>
+                <h4 class="text-sm font-black text-white uppercase tracking-wider flex items-center gap-1.5"><i class="fas fa-history text-rose-400"></i> Historical Leaders (data.json)</h4>
+                <p class="text-[10px] text-gray-500 font-bold mt-1">ডাটাবেজে রেকর্ড করা বিগত সমস্ত লিডার হিস্ট্রি মুছে ফেলা হবে।</p>
+            </div>
+            <button onclick="confirmPurgeAction('data')" class="bg-rose-600/10 hover:bg-rose-600 text-rose-500 border border-rose-500/20 font-black px-4 py-2.5 rounded-xl transition text-xs uppercase tracking-wider">Purge</button>
+        </div>
+
+        <!-- Card: Live Status Records -->
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-5 rounded-[2rem] flex justify-between items-center hover:border-rose-500/20 transition-all duration-300">
+            <div>
+                <h4 class="text-sm font-black text-white uppercase tracking-wider flex items-center gap-1.5"><i class="fas fa-info-circle text-rose-400"></i> Live Tracker Status (info.json)</h4>
+                <p class="text-[10px] text-gray-500 font-bold mt-1">ট্র্যাকার বটের লাইভ স্ট্যাটাস টেবিল ডাটা রি-সেট হবে।</p>
+            </div>
+            <button onclick="confirmPurgeAction('info')" class="bg-rose-600/10 hover:bg-rose-600 text-rose-500 border border-rose-500/20 font-black px-4 py-2.5 rounded-xl transition text-xs uppercase tracking-wider">Purge</button>
+        </div>
+
+        <!-- Card: Members/Admins -->
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-5 rounded-[2rem] flex justify-between items-center hover:border-rose-500/20 transition-all duration-300">
+            <div>
+                <h4 class="text-sm font-black text-white uppercase tracking-wider flex items-center gap-1.5"><i class="fas fa-users text-rose-400"></i> Admin Members (members.json)</h4>
+                <p class="text-[10px] text-gray-500 font-bold mt-1">সব এডমিন মুছে ফেলা হবে। (নিরাপত্তার স্বার্থে রুট ওনার আইডি সুরক্ষিত থাকবে)।</p>
+            </div>
+            <button onclick="confirmPurgeAction('members')" class="bg-rose-600/10 hover:bg-rose-600 text-rose-500 border border-rose-500/20 font-black px-4 py-2.5 rounded-xl transition text-xs uppercase tracking-wider">Purge</button>
+        </div>
+    </div>
+</div>
+
+<!-- PURGING DOUBLE CONFIRMATION MODAL -->
+<div id="purge-confirm-modal" class="fixed inset-0 hidden items-center justify-center bg-black/95 backdrop-blur-sm z-[400]">
+    <div class="bg-[#1b1e2b] border border-rose-500/20 w-full max-w-sm rounded-[2.2rem] p-6 text-center shadow-2xl mx-4">
+        <div class="w-16 h-16 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto mb-4 border border-rose-500/20"><i class="fas fa-radiation text-2xl animate-spin"></i></div>
+        <h4 class="text-lg font-black text-white uppercase tracking-wide">CONFIRM DATA PURGE</h4>
+        <p class="text-xs text-gray-400 font-bold mt-1 mb-6">ডাটাবেজ থেকে এই ক্যাটাগরির সমস্ত তথ্য চিরতরে মুছে যাবে। আপনি কি নিশ্চিত?</p>
+        
+        <div class="flex gap-4">
+            <button onclick="document.getElementById('purge-confirm-modal').classList.replace('flex', 'hidden')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-2xl text-xs uppercase tracking-wider transition">Cancel</button>
+            <button onclick="executePurgeRequest()" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-2xl text-xs uppercase tracking-wider transition shadow-lg">Confirm Purge</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.safeRunSection('database_purge', function() {
+        window.purgeTargetHolder = null;
+
+        window.confirmPurgeAction = function(target) {
+            window.purgeTargetHolder = target;
+            document.getElementById('purge-confirm-modal').classList.replace('hidden', 'flex');
+        };
+
+        window.executePurgeRequest = async function() {
+            let target = window.purgeTargetHolder;
+            if(!target) return;
+
+            document.getElementById('purge-confirm-modal').classList.replace('flex', 'hidden');
+
+            try {
+                let res = await fetch('/api/admin/clear_data', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({target: target})
+                });
+                let data = await res.json();
+                if(data.success) {
+                    showPopup("Data Purged", data.msg, "success");
+                    if(typeof fetchAccessMetrics === 'function') fetchAccessMetrics();
+                } else {
+                    showPopup("Error Purging", data.msg, "error");
+                }
+            } catch(e) {
+                showPopup("System Error", "Failed to communicate with DB Purge Gateway.", "error");
+            }
+        };
+    });
+</script>
+<!-- END OF FILE templates/sections/database_purge.html -->

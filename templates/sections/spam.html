@@ -1,0 +1,68 @@
+<!-- START OF FILE templates/sections/spam.html -->
+<div class="bg-[#1B1E31]/40 border border-white/5 p-6 rounded-[2rem] shadow-lg glass-card">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <h2 class="text-xl font-black text-white uppercase tracking-widest flex items-center gap-2">
+            <i class="fas fa-bolt text-indigo-400 animate-pulse"></i> Active Spam Targets
+        </h2>
+        
+        <!-- Spam Search Input -->
+        <div class="relative w-full md:max-w-xs">
+            <i class="fas fa-search absolute left-3 top-3.5 text-gray-500"></i>
+            <input type="text" id="spamSearchInput" onkeyup="renderSpam()" placeholder="Search active queue UIDs..." class="w-full bg-[#0b0d17]/80 border border-white/10 text-white rounded-xl py-2.5 pl-9 pr-4 outline-none focus:border-indigo-500/50 transition text-xs font-bold shadow-inner">
+        </div>
+    </div>
+    
+    <div id="spam-container" class="space-y-4">
+        <div class="p-4 text-center text-gray-500">Loading active spam queues...</div>
+    </div>
+</div>
+
+<script>
+    window.safeRunSection('spam', function() {
+        window.rawSpamData = {};
+
+        window.fetchSpam = async function() {
+            try {
+                let res = await fetch('/api/spam'); 
+                if (res.status === 401) { window.location.reload(); return; }
+                window.rawSpamData = await res.json(); 
+                renderSpam(); 
+            } catch(e) {
+                console.error("fetchSpam failed:", e);
+            }
+        };
+
+        window.renderSpam = function() {
+            let term = document.getElementById('spamSearchInput').value.toLowerCase().trim();
+            let data = window.rawSpamData || {};
+            let html = '';
+            
+            for(let bot in data) {
+                let uids = data[bot] || [];
+                let filteredUids = uids.filter(t => String(t.uid).includes(term) || String(t.source).toLowerCase().includes(term));
+                
+                if (term !== '' && filteredUids.length === 0) continue;
+
+                html += `
+                <div class="bg-[#11131a]/80 backdrop-blur-md border border-white/5 rounded-[2rem] p-5">
+                    <h4 class="text-indigo-400 font-black mb-3 flex items-center gap-2 text-sm uppercase tracking-widest"><i class="fas fa-robot"></i> Bot List ${bot} <span class="text-gray-500">(${filteredUids.length} Targets)</span></h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        ${filteredUids.map(t => `<div class="bg-[#1b1e2b]/60 p-3 rounded-2xl border border-white/5 flex justify-between items-center cursor-pointer hover:border-indigo-400 transition" onclick="viewGenericProfile('${t.uid}', '${t.source}')"><div><div class="text-white font-bold text-sm font-mono">${t.uid}</div><div class="text-[9px] text-gray-500 mt-1 uppercase"><i class="fas fa-link"></i> ${t.source}</div></div><i class="fas fa-chevron-right text-gray-600 text-xs"></i></div>`).join('')}
+                        ${filteredUids.length === 0 ? '<div class="text-gray-500 text-xs italic col-span-full">No matching targets found.</div>' : ''}
+                    </div>
+                </div>`;
+            }
+            
+            document.getElementById('spam-container').innerHTML = html || '<div class="p-4 text-center text-gray-500">No active spam targets found matching search terms.</div>';
+        };
+
+        window.addEventListener('tabSwitched', function(e) {
+            if (e.detail.tab === 'spam') {
+                fetchSpam();
+            }
+        });
+
+        fetchSpam();
+    });
+</script>
+<!-- END OF FILE templates/sections/spam.html -->

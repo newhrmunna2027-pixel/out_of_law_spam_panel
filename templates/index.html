@@ -1,0 +1,423 @@
+<!-- START OF FILE templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OUT OF LAW - System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Noto+Sans:wght@400;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans"', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* 🚀 Flutter-style Velvet Cotton Dark Background with organic gradient */
+        body {
+            background: radial-gradient(circle at 50% 50%, #151829 0%, #080911 100%);
+            color: #E2E8F0;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* 🚀 Ultra-smooth Scrollbar with Soft Corners */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #080911;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.3);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.6);
+        }
+
+        /* 🚀 Organic Deep-Rounded Glassmorphic Panels */
+        .glass-card {
+            background: rgba(23, 26, 43, 0.65);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 2rem !important; /* Deep Organic Curves */
+            box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.4), 0 0 15px rgba(99, 102, 241, 0.04);
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .glass-card:hover {
+            transform: translateY(-5px) scale(1.01);
+            box-shadow: 0 25px 45px -12px rgba(0, 0, 0, 0.6), 0 0 25px rgba(99, 102, 241, 0.15);
+            border-color: rgba(99, 102, 241, 0.25);
+        }
+
+        /* 🚀 Garena Rarity Glow System */
+        .glow-text {
+            text-shadow: 0 0 12px rgba(99, 102, 241, 0.5), 0 0 24px rgba(99, 102, 241, 0.2);
+        }
+        .game-font {
+            font-family: 'Noto Serif', serif !important;
+            color: #fbeea8 !important;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
+        }
+
+        /* 🚀 Spring/Elastic Physics for all Interactive Elements */
+        button, a, input, select, .sidebar-link {
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        }
+        button:hover, .sidebar-link:hover {
+            transform: scale(1.03);
+        }
+        button:active, .sidebar-link:active {
+            transform: scale(0.97);
+        }
+
+        /* 🚀 Floating UI Capsule Panels Slide up Animations */
+        .tab-content {
+            display: none;
+            animation: springSlideUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .tab-content.active {
+            display: block;
+        }
+        @keyframes springSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* 🚀 Soft Cotton inputs overrides */
+        input, select, textarea {
+            border-radius: 1.25rem !important;
+            background-color: rgba(11, 13, 23, 0.8) !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            outline: none !important;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: rgba(99, 102, 241, 0.5) !important;
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.2) !important;
+        }
+    </style>
+
+    <!-- CORE SYSTEM BOOTLOADER -->
+    <script>
+        const currentUser = {{ current_user | tojson if current_user else 'null' }};
+        
+        window.allTargets = [];
+        window.allInfoData = {};
+        window.allHistoryData = {};
+        window.dataPagination = {}; 
+        window.selectedUserFilter = 'all';
+
+        // 🚀 FIXED: GLOABAL DATE FORMATTER
+        window.formatDateTime = function(unixSeconds) {
+            if(!unixSeconds) return 'N/A';
+            let d = new Date(parseInt(unixSeconds) * 1000);
+            let pad = n => n.toString().padStart(2, '0');
+            return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        };
+
+        // 🚀 FIXED: GLOBAL SIGNATURE PARSER
+        window.parseFFSignature = function(text) { 
+            if (!text) return "No Signature"; 
+            let parsed = text
+                .replace(/\[([0-9a-fA-F]{6})\]/g, '</span><span style="color:#$1;">')
+                .replace(/\[c\]|\[C\]/gi, '</span><div style="text-align:center;"><span>')
+                .replace(/\[b\]|\[B\]/gi, '<b>')
+                .replace(/\[\/b\]|\[\/B\]/gi, '</b>'); 
+            return `<span>${parsed}</span>`.replace(/<\/div><span>/g, '</div>'); 
+        };
+
+        window.getAvatarRarityColor = function(hPicId) {
+            return {
+                border: "border-indigo-500/80",
+                glow: "shadow-[0_0_20px_rgba(99,102,241,0.4)]",
+                badge: "bg-indigo-500 text-white",
+                text: "text-indigo-400",
+                bar: "bg-indigo-500/80"
+            };
+        };
+
+        window.safeRunSection = function(sectionId, initFn) {
+            try {
+                if (typeof initFn === 'function') {
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', () => initFn());
+                    } else {
+                        initFn();
+                    }
+                }
+            } catch (error) {
+                console.error(`[Error Boundary] Failed to execute section [${sectionId}]:`, error);
+            }
+        };
+
+        window.isOwner = function(userObj) {
+            return userObj && (userObj.role === 'owner' || userObj.role === 'creator');
+        };
+        window.isCreator = function(userObj) {
+            return userObj && userObj.role === 'creator';
+        };
+    </script>
+</head>
+<body class="font-sans antialiased min-h-screen flex flex-col justify-between relative">
+
+    <!-- 🚀 BACKGROUND AMBIENT COTTON AURORA CLOUDS -->
+    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div class="absolute -top-[15%] -left-[10%] w-[45rem] h-[45rem] bg-indigo-500/10 rounded-full blur-[140px] animate-pulse" style="animation-duration: 9s;"></div>
+        <div class="absolute top-[35%] right-[-15%] w-[40rem] h-[40rem] bg-fuchsia-500/8 rounded-full blur-[120px] animate-pulse" style="animation-duration: 14s;"></div>
+        <div class="absolute -bottom-[15%] left-[15%] w-[42rem] h-[42rem] bg-cyan-500/10 rounded-full blur-[130px] animate-pulse" style="animation-duration: 11s;"></div>
+    </div>
+
+    {% if show_login %}
+        <div class="relative z-10 w-full flex-1 flex items-center justify-center">
+            {% include 'sections/login.html' %}
+        </div>
+    {% else %}
+        <!-- 🚀 CAPSULED FLOATING TOP HEADER (🚀 Redesigned with premium neon border & glowing shadows) -->
+        <header class="mx-4 mt-4 relative z-50 bg-[#161827]/75 backdrop-blur-xl border border-indigo-500/20 text-white flex justify-between items-center px-6 py-4 rounded-[1.8rem] shadow-[0_15px_40px_rgba(99,102,241,0.15)]">
+            <div class="flex items-center gap-4">
+                <!-- 🚀 FIXED: toggleSidebar() called without parameters to enable auto toggling -->
+                <button onclick="toggleSidebar()" class="p-3 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-2xl hover:scale-105 active:scale-95 transition border border-indigo-500/20 shadow-lg">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+                <div class="flex flex-col">
+                    <h1 class="font-['Orbitron'] font-black text-lg md:text-xl tracking-[0.25em] uppercase select-none bg-gradient-to-r from-indigo-300 via-purple-200 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(99,102,241,0.35)]">
+                        OUT OF LAW
+                    </h1>
+                    <span class="text-[8px] font-black text-indigo-400/80 uppercase tracking-widest -mt-1 hidden sm:block">SYSTEM CENTRAL OPERATIONAL TERMINAL</span>
+                </div>
+            </div>
+
+            <!-- Quick Stats & Status Badge -->
+            <div class="flex items-center gap-4">
+                <div class="hidden md:flex items-center gap-2.5 bg-[#0b0d17]/60 border border-white/5 px-4 py-1.5 rounded-full shadow-inner">
+                    <span class="relative flex h-2.5 w-2.5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <span class="text-[9px] font-black text-emerald-400 uppercase tracking-widest">SYSTEM ONLINE</span>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <div class="text-right flex flex-col justify-center">
+                        <span class="text-xs sm:text-sm font-black text-white tracking-wide uppercase truncate max-w-[80px] sm:max-w-none">{{ current_user.name | default(current_user.username) }}</span>
+                    </div>
+                    
+                    <button onclick="document.getElementById('profile-modal').classList.replace('hidden', 'flex')" class="relative group cursor-pointer focus:outline-none">
+                        <div class="w-10 h-10 rounded-2xl bg-[#11131a] border-2 {% if current_user.role == 'creator' %}border-rose-500{% elif current_user.role == 'owner' %}border-yellow-400{% else %}border-indigo-400{% endif %} overflow-hidden shadow-[0_0_15px_rgba(99,102,241,0.3)] transition duration-300 group-hover:scale-105">
+                            <img src="https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/{{ current_user.pic | default('902000003') }}.png" class="w-full h-full object-cover rounded-lg">
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 🚀 FLOATING DRAWER MENU -->
+        <div id="sidebar" class="fixed top-24 left-4 bottom-6 w-68 bg-[#121421]/90 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] transform -translate-x-full transition-transform duration-500 z-40 border border-white/5 flex flex-col justify-between rounded-[2.2rem] py-6">
+            <nav class="flex flex-col gap-1.5 px-4 overflow-y-auto pb-4 h-full">
+                <a onclick="switchTab('dashboard')" class="sidebar-link cursor-pointer text-gray-300 p-3.5 rounded-2xl hover:bg-indigo-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-chart-pie w-5"></i> Dashboard</a>
+                <div class="h-px bg-white/5 my-1.5"></div>
+                <a onclick="switchTab('targets')" class="sidebar-link cursor-pointer text-gray-300 p-3.5 rounded-2xl hover:bg-indigo-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-crosshairs w-5"></i> Manage Targets</a>
+                <a onclick="switchTab('my_bots')" class="sidebar-link cursor-pointer text-gray-300 p-3.5 rounded-2xl hover:bg-indigo-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-robot w-5"></i> My Bots</a>
+                <div class="h-px bg-white/5 my-1.5"></div>
+                <a onclick="switchTab('info')" class="sidebar-link cursor-pointer text-gray-300 p-3.5 rounded-2xl hover:bg-indigo-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-info-circle w-5"></i> Live Status Tracker</a>
+                <a onclick="switchTab('data')" class="sidebar-link cursor-pointer text-gray-300 p-3.5 rounded-2xl hover:bg-indigo-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-database w-5"></i> Leader Records</a>
+                <a onclick="switchTab('spam')" class="sidebar-link cursor-pointer text-gray-300 p-3.5 rounded-2xl hover:bg-indigo-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-bolt w-5"></i> Attack Panel</a>
+                <a onclick="switchTab('tutorial')" class="sidebar-link cursor-pointer text-gray-300 p-3.5 rounded-2xl hover:bg-indigo-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-book w-5"></i> Tutorials Guide</a>
+                {% if current_user.role in ['owner', 'creator'] %}
+                    <div class="h-px bg-white/5 my-1.5"></div>
+                    <a onclick="switchTab('whitelist')" class="sidebar-link cursor-pointer text-gray-300 p-3.5 rounded-2xl hover:bg-indigo-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-lock w-5"></i> Security Whitelist</a>
+                    <a onclick="switchTab('users_tab')" class="sidebar-link cursor-pointer text-emerald-400 p-3.5 rounded-2xl hover:bg-emerald-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-users w-5"></i> User Management</a>
+                    <a onclick="switchTab('logs_tab')" class="sidebar-link cursor-pointer text-fuchsia-400 p-3.5 rounded-2xl hover:bg-fuchsia-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-history w-5"></i> System Logs</a>
+                {% endif %}
+                {% if current_user.role == 'creator' %}
+                    <div class="h-px bg-white/5 my-1.5"></div>
+                    <a onclick="switchTab('access_tab')" class="sidebar-link cursor-pointer text-rose-500 p-3.5 rounded-2xl hover:bg-rose-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-shield-alt w-5"></i> Creator Access</a>
+                    <a onclick="switchTab('database_purge_tab')" class="sidebar-link cursor-pointer text-rose-500 p-3.5 rounded-2xl hover:bg-rose-500 hover:text-white transition flex items-center gap-3 font-bold"><i class="fas fa-trash-alt w-5"></i> Database Purge</a>
+                {% endif %}
+            </nav>
+            <div class="px-4">
+                <a href="/logout" class="sidebar-link text-rose-400 hover:text-white p-3.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500 transition duration-300 flex items-center gap-3 font-bold">
+                    <i class="fas fa-power-off w-5"></i> Logout
+                </a>
+            </div>
+        </div>
+
+        <div id="sidebar-overlay" onclick="toggleSidebar(false)" class="fixed inset-0 bg-black/60 z-30 hidden backdrop-blur-xs transition-opacity duration-300"></div>
+
+        <!-- MAIN LAYOUT CONTAINERS (🚀 z-10 removed to allow child fixed modals to layer properly globally) -->
+        <main class="p-4 md:p-6 max-w-5xl mx-auto w-full flex-1 relative">
+            <div id="dashboard" class="tab-content active">
+                <div id="boundary-dashboard">{% include 'sections/dashboard.html' ignore missing %}</div>
+            </div>
+            <div id="my_bots" class="tab-content">
+                <div id="boundary-my-bots">{% include 'sections/my_bots.html' ignore missing %}</div>
+            </div>
+            <div id="targets" class="tab-content">
+                <div id="boundary-targets">{% include 'sections/targets.html' ignore missing %}</div>
+            </div>
+            <div id="info" class="tab-content">
+                <div id="boundary-info">{% include 'sections/info.html' ignore missing %}</div>
+            </div>
+            <div id="data" class="tab-content">
+                <div id="boundary-data">{% include 'sections/data.html' ignore missing %}</div>
+            </div>
+            <div id="spam" class="tab-content">
+                <div id="boundary-spam">{% include 'sections/spam.html' ignore missing %}</div>
+            </div>
+            <div id="tutorial" class="tab-content">
+                <div id="boundary-tutorial">{% include 'sections/tutorial.html' ignore missing %}</div>
+            </div>
+            {% if current_user.role in ['owner', 'creator'] %}
+                <div id="whitelist" class="tab-content"><div id="boundary-whitelist">{% include 'sections/whitelist.html' ignore missing %}</div></div>
+                <div id="users_tab" class="tab-content"><div id="boundary-users">{% include 'sections/users.html' ignore missing %}</div></div>
+                <div id="logs_tab" class="tab-content"><div id="boundary-logs">{% include 'sections/logs.html' ignore missing %}</div></div>
+            {% endif %}
+            {% if current_user.role == 'creator' %}
+                <div id="access_tab" class="tab-content"><div id="boundary-access">{% include 'sections/access.html' ignore missing %}</div></div>
+                <div id="database_purge_tab" class="tab-content"><div id="boundary-database-purge">{% include 'sections/database_purge.html' ignore missing %}</div></div>
+            {% endif %}
+        </main>
+
+        <!-- Dynamic Overlay Modals -->
+        {% include 'sections/add_target_form.html' ignore missing %}
+        {% include 'sections/view_modal.html' ignore missing %}
+        {% include 'sections/generic_modal.html' ignore missing %}
+        {% include 'sections/profile_modal.html' ignore missing %}
+        {% include 'sections/console.html' ignore missing %}
+        {% if current_user.role in ['owner', 'creator'] %}{% include 'sections/user_modal.html' ignore missing %}{% endif %}
+
+        <!-- Soft Elastic Confirms & Dialogs -->
+        <div id="delete-modal" class="fixed inset-0 hidden items-center justify-center bg-black/90 backdrop-blur-sm z-[500] transition-all">
+            <div class="bg-[#171a2b] border border-white/5 w-full max-w-sm rounded-[2.2rem] p-8 text-center shadow-2xl mx-4 transition-transform duration-300">
+                <div class="w-16 h-16 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto mb-6 border border-rose-500/20"><i class="fas fa-trash-alt text-2xl animate-pulse"></i></div>
+                <h4 class="text-xl font-black text-white mb-2 uppercase tracking-wide">Remove Target?</h4>
+                <p class="text-sm text-gray-400 font-bold mb-8">This action will stop the protocol on this player.</p>
+                <div class="flex gap-4">
+                    <button onclick="const dm = document.getElementById('delete-modal'); if(dm){ dm.classList.add('hidden'); dm.classList.remove('flex'); }" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-2xl transition">Cancel</button>
+                    <!-- 🚀 FIXED: Global method pointed directly on window scope to guarantee execution across all platforms -->
+                    <button onclick="window.deleteTarget()" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-2xl shadow-lg transition">Delete</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="alert-modal" class="fixed inset-0 hidden items-center justify-center bg-black/85 backdrop-blur-sm z-[500] transition-all">
+            <div class="bg-[#171a2b] border border-white/5 w-full max-w-sm rounded-[2.2rem] p-6 text-center shadow-2xl mx-4">
+                <div id="alert-icon-box" class="w-16 h-16 rounded-full bg-[#10b981]/10 text-[#10b981] flex items-center justify-center mx-auto mb-4 border border-[#10b981]/20"><i id="alert-icon" class="fas text-3xl"></i></div>
+                <h4 id="alert-title" class="text-xl font-black text-white mb-2 uppercase tracking-wide">Success</h4>
+                <p id="alert-message" class="text-sm text-gray-400 font-bold mb-6 break-words whitespace-pre-wrap"></p>
+                <button onclick="closeAlertModal()" class="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-black py-4 rounded-2xl transition uppercase tracking-widest text-xs">OK</button>
+            </div>
+        </div>
+
+        <!-- GLOBAL INTERACTIVE TOUR POPUPS -->
+        <div id="tour-tooltip" class="fixed hidden bg-[#141624]/95 border-2 border-indigo-500/50 p-5 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-[1000] w-[290px] sm:w-[320px] max-w-full h-auto backdrop-blur-md transition-all duration-300">
+            <div id="tour-arrow" class="absolute -top-2 w-4 h-4 bg-[#141624] border-t-2 border-l-2 border-indigo-500/50 transform rotate-45"></div>
+            <div class="space-y-3">
+                <h4 class="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1.5"><i class="fas fa-graduation-cap"></i> নির্দেশাবলী</h4>
+                <p id="tour-tooltip-text" class="text-xs font-bold text-gray-300 leading-relaxed break-words"></p>
+                <div class="flex justify-between items-center pt-2.5 border-t border-white/5">
+                    <span id="tour-step-badge" class="bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 text-[9px] font-black px-2.5 py-0.5 rounded-full">ধাপ ১/১২</span>
+                    <div class="flex items-center gap-3">
+                        <button id="tour-next-btn" onclick="window.TourManager.nextStep()" class="hidden bg-indigo-500 hover:bg-indigo-400 text-white text-[10px] font-black px-3.5 py-1.5 rounded-xl uppercase tracking-wider transition">পরবর্তী</button>
+                        <button onclick="window.TourManager.skip()" class="text-rose-400 hover:text-rose-300 text-[10px] font-black uppercase tracking-wider transition">এড়িয়ে যান</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tour-top-bar" class="fixed bottom-6 right-4 bg-black/85 border border-rose-500/30 pl-4 pr-2 py-2 rounded-2xl z-[1000] flex items-center gap-2.5 shadow-2xl backdrop-blur-md hidden transition-all duration-300">
+            <span class="text-[9px] font-black text-rose-400 uppercase tracking-widest animate-pulse flex items-center"><i class="fas fa-circle text-[7px] text-rose-500 mr-1.5"></i>TUTORIAL ACTIVE</span>
+            <button onclick="window.TourManager.skip()" class="bg-rose-600/90 hover:bg-rose-600 text-white text-[9px] font-black px-3 py-1 rounded-xl uppercase tracking-wider transition duration-300 shadow-md">
+                <i class="fas fa-times mr-1"></i> Skip
+            </button>
+        </div>
+    {% endif %}
+
+    <!-- UTILITY CONTROL ENGINE -->
+    <script>
+        // 🚀 FIXED: toggleSidebar() rewritten to support click-outside and auto toggling flawlessly
+        function toggleSidebar(open) {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            if (open === undefined) {
+                open = sidebar.classList.contains('-translate-x-full');
+            }
+            if (open) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.replace('hidden', 'block');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.replace('block', 'hidden');
+            }
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(tab).classList.add('active');
+            toggleSidebar(false); 
+            window.dispatchEvent(new CustomEvent('tabSwitched', { detail: { tab } }));
+        }
+
+        window.copyToClipboard = function(text, el) {
+            if(window.event) window.event.stopPropagation();
+            if(!text || text === "N/A" || text === "0") return;
+            navigator.clipboard.writeText(text).then(() => {
+                let originalHtml = el.innerHTML;
+                el.innerHTML = '<span class="text-emerald-400"><i class="fas fa-check"></i> Copied!</span>';
+                setTimeout(() => { el.innerHTML = originalHtml; }, 1000);
+            }).catch(err => console.error('Copy failed', err));
+        };
+
+        function showPopup(title, message, type = 'success') {
+            const modal = document.getElementById('alert-modal');
+            const iconBox = document.getElementById('alert-icon-box');
+            const icon = document.getElementById('alert-icon');
+            const titleEl = document.getElementById('alert-title');
+            const msgEl = document.getElementById('alert-message');
+            
+            titleEl.innerText = title;
+            msgEl.innerText = message;
+            
+            if (type === 'success') {
+                iconBox.className = "w-16 h-16 rounded-full bg-[#10b981]/10 text-[#10b981] flex items-center justify-center mx-auto mb-4 border border-[#10b981]/20";
+                icon.className = "fas fa-check-circle text-3xl";
+            } else if (type === 'error') {
+                iconBox.className = "w-16 h-16 rounded-full bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto mb-4 border border-rose-500/20";
+                icon.className = "fas fa-exclamation-circle text-3xl";
+            } else {
+                iconBox.className = "w-16 h-16 rounded-full bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto mb-4 border border-indigo-500/20";
+                icon.className = "fas fa-exclamation-triangle text-3xl";
+            }
+            modal.classList.replace('hidden', 'flex');
+        }
+
+        window.closeAlertModal = function() { 
+            const alertModal = document.getElementById('alert-modal');
+            if (alertModal) {
+                alertModal.classList.add('hidden');
+                alertModal.classList.remove('flex');
+            }
+        };
+    </script>
+</body>
+</html>
+<!-- END OF FILE templates/index.html -->

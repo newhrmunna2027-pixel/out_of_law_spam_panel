@@ -1,0 +1,161 @@
+<!-- START OF FILE templates/sections/whitelist.html -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
+    <!-- Players Whitelist Panel -->
+    <div class="bg-[#1B1E31]/40 border border-white/5 p-5 rounded-[2rem] shadow-lg flex flex-col h-[520px] glass-card">
+        <h2 class="text-lg font-black text-white uppercase tracking-widest mb-2 flex items-center gap-2"><i class="fas fa-user-shield text-indigo-400"></i> Player Whitelist</h2>
+        <p class="text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-4">অনুমোদিত প্লেয়ার আইডি (এদের ওপর কখনো স্প্যাম ফায়ার হবে না)।</p>
+        
+        <div class="flex gap-2 mb-4">
+            <input type="number" id="wl-player-input" placeholder="Enter Player UID" class="flex-1 bg-[#11131a]/80 border border-white/10 text-white rounded-xl px-4 py-3.5 outline-none focus:border-indigo-500 text-sm font-bold shadow-inner">
+            <button onclick="addWhitelist('players')" class="bg-indigo-500 hover:bg-indigo-400 text-white font-bold px-5 rounded-2xl transition"><i class="fas fa-plus"></i></button>
+        </div>
+        <div id="wl-players-list" class="overflow-y-auto flex-1 space-y-2.5 pr-2">
+            <div class="text-center text-gray-500 py-4 text-xs">Loading players...</div>
+        </div>
+    </div>
+    
+    <!-- Guilds Whitelist Panel -->
+    <div class="bg-[#1B1E31]/40 border border-white/5 p-5 rounded-[2rem] shadow-lg flex flex-col h-[520px] glass-card">
+        <h2 class="text-lg font-black text-white uppercase tracking-widest mb-2 flex items-center gap-2"><i class="fas fa-shield-alt text-indigo-400"></i> Guild Whitelist</h2>
+        <p class="text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-4">অনুমোদিত গিল্ড আইডি (এই গিল্ডের অন্তর্ভুক্ত সমস্ত প্লেয়ার সুরক্ষিত থাকবে)।</p>
+        
+        <div class="flex gap-2 mb-4">
+            <input type="number" id="wl-guild-input" placeholder="Enter Guild ID" class="flex-1 bg-[#11131a]/80 border border-white/10 text-white rounded-xl px-4 py-3.5 outline-none focus:border-indigo-500 text-sm font-bold shadow-inner">
+            <button onclick="addWhitelist('guilds')" class="bg-indigo-500 hover:bg-indigo-400 text-white font-bold px-5 rounded-2xl transition"><i class="fas fa-plus"></i></button>
+        </div>
+        <div id="wl-guilds-list" class="overflow-y-auto flex-1 space-y-2.5 pr-2">
+            <div class="text-center text-gray-500 py-4 text-xs">Loading guilds...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.safeRunSection('whitelist', function() {
+        window.whitelistProfilesCache = {};
+
+        window.fetchWhitelist = async function() {
+            try {
+                let res = await fetch('/api/whitelist'); 
+                if (res.status === 401) { window.location.reload(); return; }
+                let data = await res.json();
+                
+                let playersContainer = document.getElementById('wl-players-list');
+                if(data.players.length === 0) {
+                    playersContainer.innerHTML = '<div class="text-gray-500 text-center py-4 text-sm italic">No players whitelisted.</div>';
+                } else {
+                    playersContainer.innerHTML = data.players.map((p, index) => {
+                        let cardId = `wl-pcard-${p}-${index}`;
+                        let cName = 'Loading...';
+                        let cGuild = 'Loading Guild...';
+                        let cPic = `<i class="fas fa-spinner fa-spin text-indigo-400 text-xs"></i>`;
+                        
+                        if(whitelistProfilesCache[p]) {
+                            cName = whitelistProfilesCache[p].name;
+                            cGuild = whitelistProfilesCache[p].guild;
+                            cPic = whitelistProfilesCache[p].pic;
+                        } else {
+                            fetchRealTimeWhitelistProfile(p, cardId);
+                        }
+
+                        return `
+                        <div id="${cardId}" class="bg-[#11131a]/80 backdrop-blur-md rounded-2xl border border-white/5 p-2.5 flex items-center justify-between hover:border-indigo-400/40 transition">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-10 h-10 border border-purple-800 bg-black p-0.5 rounded-xl shadow flex-shrink-0 flex items-center justify-center cursor-pointer" onclick="viewGenericProfile('${p}', 'Whitelisted Player')">${cPic}</div>
+                                <div class="min-w-0">
+                                    <div class="text-white text-sm font-bold game-font truncate leading-tight">${cName}</div>
+                                    <div class="text-yellow-400 text-[9px] font-bold truncate mt-0.5"><i class="fas fa-shield-alt text-gray-500"></i> ${cGuild}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 flex-shrink-0 ml-2">
+                                <div class="text-right">
+                                    <div class="text-gray-400 font-mono text-[10px] font-bold cursor-pointer hover:text-white" onclick="copyToClipboard('${p}', this)" title="Copy UID">${p}</div>
+                                </div>
+                                <button onclick="removeWhitelist('players', '${p}')" class="text-rose-500 hover:text-rose-400 transition p-2 bg-rose-500/5 hover:bg-rose-500/10 rounded-xl"><i class="fas fa-trash text-xs"></i></button>
+                            </div>
+                        </div>`;
+                    }).join('');
+                }
+
+                document.getElementById('wl-guilds-list').innerHTML = data.guilds.map(g => `
+                    <div class="flex justify-between items-center bg-[#11131a]/80 border border-white/5 p-3.5 rounded-2xl hover:border-indigo-400/30 transition">
+                        <span class="text-white font-bold font-mono text-sm">
+                            <i class="fas fa-shield-alt text-gray-500 mr-2"></i> ${g}
+                        </span>
+                        <button onclick="removeWhitelist('guilds', '${g}')" class="text-rose-500 hover:text-rose-400 transition p-2 bg-rose-500/5 hover:bg-rose-500/10 rounded-xl"><i class="fas fa-trash text-xs"></i></button>
+                    </div>`).join('') || '<div class="text-gray-500 text-center py-4 text-sm italic">No guilds whitelisted.</div>';
+            } catch(e) {
+                console.error("fetchWhitelist failed:", e);
+            }
+        };
+
+        window.fetchRealTimeWhitelistProfile = async function(lUid, cardId) {
+            try {
+                const res = await fetch('/api/fetch_profile', { method: 'POST', body: JSON.stringify({uid: lUid, save: false, force: false}) }); 
+                const d = await res.json();
+                
+                let cName, cGuild, cPic;
+                if(d.success) {
+                    const basic = d.data?.basicInfo || {}; 
+                    const clan = d.data?.clanBasicInfo || {}; 
+                    let lPic = `https://cdn.jsdelivr.net/gh/ShahGCreator/icon@main/PNG/${basic.headPic || '902000003'}.png`;
+                    cPic = `<img src="${lPic}" class="w-full h-full object-cover rounded-md">`;
+                    cName = basic.nickname || 'Unknown';
+                    cGuild = clan.clanName || 'No Guild';
+                } else {
+                    cPic = `<i class="fas fa-user-times text-rose-500 text-xs"></i>`; cName = `Not Found`; cGuild = `No Guild`;
+                }
+                
+                whitelistProfilesCache[lUid] = { name: cName, guild: cGuild, pic: cPic };
+
+                const card = document.getElementById(cardId); 
+                if (!card) return; 
+                card.querySelector('.w-10').innerHTML = cPic;
+                card.querySelector('.min-w-0 .text-white').innerText = cName;
+                card.querySelector('.min-w-0 .text-yellow-400').innerHTML = `<i class="fas fa-shield-alt text-gray-500"></i> ${cGuild}`;
+            } catch(e) {
+                console.error("Leader lookup failed:", e);
+            }
+        };
+
+        window.addWhitelist = async function(type) { 
+            let inputEl = document.getElementById(type === 'players' ? 'wl-player-input' : 'wl-guild-input'); 
+            if(!inputEl) return;
+            let id = inputEl.value.trim(); 
+            if(!id) return; 
+            
+            try {
+                await fetch('/api/whitelist/add', { 
+                    method: 'POST', 
+                    headers: {'Content-Type':'application/json'}, 
+                    body: JSON.stringify({type, id}) 
+                }); 
+                inputEl.value = ''; 
+                fetchWhitelist(); 
+            } catch(e) {
+                console.error("Error adding whitelist item:", e);
+            }
+        };
+
+        window.removeWhitelist = async function(type, id) { 
+            try {
+                await fetch('/api/whitelist/remove', { 
+                    method: 'POST', 
+                    headers: {'Content-Type':'application/json'}, 
+                    body: JSON.stringify({type, id}) 
+                }); 
+                fetchWhitelist(); 
+            } catch(e) {
+                console.error("Error removing whitelist item:", e);
+            }
+        };
+
+        window.addEventListener('tabSwitched', function(e) {
+            if (e.detail.tab === 'whitelist') {
+                fetchWhitelist();
+            }
+        });
+
+        fetchWhitelist();
+    });
+</script>
+<!-- END OF FILE templates/sections/whitelist.html -->
