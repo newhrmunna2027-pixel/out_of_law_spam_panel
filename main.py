@@ -15,6 +15,7 @@ from packets.central_login import get_http_session
 # ==========================================
 # === DYNAMIC FILE WATCHERS ===
 # ==========================================
+# 🚀 FIXED: Added error logger and conflict handler to ensure targets.txt resets are read in real-time
 async def Target_Loader_Async():
     """Targets.txt থেকে লাইভ ডেটা গ্লোবাল স্টেটে সেভ করে"""
     prev_targets = ""
@@ -26,35 +27,39 @@ async def Target_Loader_Async():
                 state.ATTACK_TARGETS_DICT = data
                 prev_targets = curr
                 print(" [UPDATE] Target List Refreshed")
-        except: pass
+        except Exception as e:
+            print(f"[!] Target Loader Database Warning: {e}")
         await asyncio.sleep(5)
 
-# 🚀 FIXED: vv.json থেকে ডিলিট হওয়া বটগুলোকে সাথে সাথে মেমরি থেকে Hard-Stop করা হচ্ছে
 async def Sequential_VV_Watcher_Async():
-    """vv.json এর লাইভ চেঞ্জ অনুযায়ী বট এড/রিমুভ করে"""
+    global TOTAL_BOTS_DICT
     while True:
         try:
             current_accounts = data_coordinator.load_data("vv.json", {})
             
-            # Remove deleted accounts instantly
             for active_uid in list(state.TOTAL_BOTS_DICT.keys()):
                 if active_uid not in current_accounts:
                     print(f" [-] Removing Bot: {active_uid}")
                     bot_obj = state.TOTAL_BOTS_DICT.pop(active_uid)
-                    
-                    # 🚀 FIXED: বটের সকেট সংযোগ ও সমস্ত অ্যাসিঙ্ক টাস্ক সাথে সাথে কিল করা হচ্ছে
-                    bot_obj.stop() 
+                    bot_obj.stop()
                     state.Remove_Bot_Status(bot_obj.bot_id)
 
-            # Add new accounts sequentially
-            to_login = [u for u in sorted(current_accounts.keys()) if u not in state.TOTAL_BOTS_DICT and u not in state.PENDING_LOGINS]
+            to_login = []
+            for u in sorted(list(current_accounts.keys())):
+                if u not in state.TOTAL_BOTS_DICT and u not in state.PENDING_LOGINS:
+                    to_login.append(u)
+
             for u in to_login:
                 state.PENDING_LOGINS.add(u)
                 p = current_accounts[u]
-                pwd = p if isinstance(p, str) else p.get("password", p)
-                reg = "BD" if isinstance(p, str) else p.get("region", "BD")
+                reg = "BD"
+                pwd = p
+                if isinstance(p, dict):
+                    pwd = p.get("password", p)
+                    reg = p.get("region", "BD")
                 
                 print(f" [+] Queued Sequential Login for: {u}")
+                
                 temp_id = len(state.TOTAL_BOTS_DICT) + 1
                 new_bot = FF_CLient(u, pwd, temp_id)
                 new_bot.region = reg
@@ -65,8 +70,9 @@ async def Sequential_VV_Watcher_Async():
                 
                 state.PENDING_LOGINS.remove(u)
                 await asyncio.sleep(2.0)
+
         except Exception as e:
-            print(f"[!] Error in Watcher: {e}")
+            print(f"[!] Error in Sequential VV Watcher: {e}")
         await asyncio.sleep(5)
 
 # ==========================================
