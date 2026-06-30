@@ -4,8 +4,8 @@
         <i class="fas fa-shield-alt text-indigo-400 animate-pulse"></i> SYSTEM ACCESS MANAGEMENT
     </h2>
 
-    <!-- Live Counters Header -->
-    <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+    <!-- Live Counters Header (🚀 Grid updated to col-7 to fit Fallback pool smoothly) -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-4">
         <div class="bg-[#1B1E31]/40 border border-white/5 p-4 rounded-2xl text-center shadow">
             <span class="text-xs text-gray-400 block font-bold uppercase">Tracker Pool</span>
             <span class="text-2xl font-black text-cyan-400 animate-pulse" id="live-cnt-tracker">0</span>
@@ -22,6 +22,13 @@
             <span class="text-xs text-gray-400 block font-bold uppercase">Stock</span>
             <span class="text-2xl font-black text-green-400 animate-pulse" id="live-cnt-stock">0</span>
         </div>
+        
+        <!-- 🚀 NEW CARD: Fallback pool tracking (ex.json) -->
+        <div class="bg-[#1B1E31]/40 border border-white/5 p-4 rounded-2xl text-center shadow">
+            <span class="text-xs text-gray-400 block font-bold uppercase">Fallback Pool</span>
+            <span class="text-2xl font-black text-rose-400 animate-pulse" id="live-cnt-ex">0</span>
+        </div>
+
         <div class="bg-[#1B1E31]/40 border border-white/5 p-4 rounded-2xl text-center shadow">
             <span class="text-xs text-gray-400 block font-bold uppercase">Total Slots</span>
             <span class="text-2xl font-black text-white" id="live-cnt-total">0</span>
@@ -91,66 +98,85 @@
                 document.getElementById('live-cnt-attacker').innerText = data.vv_count;
                 document.getElementById('live-cnt-api').innerText = data.api_count;
                 document.getElementById('live-cnt-stock').innerText = data.stock_count;
+                
+                // 🚀 NEW: JS updates fallback metrics count
+                document.getElementById('live-cnt-ex').innerText = data.ex_count;
+                
                 document.getElementById('live-cnt-total').innerText = data.total_slots;
                 document.getElementById('live-cnt-allocated').innerText = data.used_slots;
                 document.getElementById('access-global-limit-input').value = data.global_limit;
-            } catch(e) {
-                console.error(e);
+            } catch (error) {
+                console.error("Failed to render metrics:", error);
             }
         };
 
         window.saveGlobalWebLimit = async function() {
-            let limit = document.getElementById('access-global-limit-input').value;
-            let res = await fetch('/api/access/update_limit', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({global_limit: limit})
-            });
-            let data = await res.json();
-            if(data.success) {
-                showPopup("Success", "Global Limit adjusted inside limit.json!", "success");
-                fetchAccessMetrics();
+            let limit = document.getElementById('access-global-limit-input').value.trim();
+            if(!limit) return;
+            try {
+                let res = await fetch('/api/access/update_limit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({global_limit: limit})
+                });
+                let data = await res.json();
+                if(data.success) {
+                    showPopup("Saved", "Global system active target limit updated.", "success");
+                    fetchAccessMetrics();
+                }
+            } catch(e) {
+                console.error("Failed to update global limit:", e);
             }
+        };
+
+        window.adjustCapValue = function(direction) {
+            let input = document.getElementById('cap-modal-limit');
+            let val = parseInt(input.value) || 0;
+            val += direction;
+            if(val < 0) val = 0;
+            input.value = val;
         };
 
         window.checkUserAccessCapacity = async function() {
-            let uname = document.getElementById('access-username-input').value.trim();
-            if(!uname) return;
-            
-            let res = await fetch('/api/access/check_user', {
-                method: 'POST',
-                headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({username: uname})
-            });
-            let data = await res.json();
-            if(data.success) {
-                document.getElementById('cap-modal-user').innerText = `\${data.name} (@\${data.username})`;
-                document.getElementById('cap-modal-limit').value = data.limit;
-                window.capActiveUser = data.username;
-                document.getElementById('capacity-modal').classList.replace('hidden', 'flex');
-            } else {
-                showPopup("Error", data.msg, "error");
+            let username = document.getElementById('access-username-input').value.trim();
+            if(!username) return;
+            try {
+                let res = await fetch('/api/access/check_user', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username})
+                });
+                let data = await res.json();
+                if (data.success) {
+                    document.getElementById('cap-modal-user').innerText = `${data.name} (@${data.username})`;
+                    document.getElementById('cap-modal-limit').value = data.limit;
+                    document.getElementById('capacity-modal').classList.replace('hidden', 'flex');
+                } else {
+                    showPopup("Error", data.msg || "User config lookup failed.", "error");
+                }
+            } catch(e) {
+                console.error("Failed to lookup user:", e);
             }
         };
 
-        window.adjustCapValue = function(val) {
-            let el = document.getElementById('cap-modal-limit');
-            let current = parseInt(el.value) || 0;
-            el.value = Math.max(0, current + val);
-        };
-
         window.saveUserCapacityLimit = async function() {
-            let limit = document.getElementById('cap-modal-limit').value;
-            let res = await fetch('/api/access/save_user_limit', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({username: window.capActiveUser, limit: limit})
-            });
-            let data = await res.json();
-            if(data.success) {
-                document.getElementById('capacity-modal').classList.replace('flex', 'hidden');
-                showPopup("Success", "User capacity limits adjusted!", "success");
-                fetchAccessMetrics();
+            let usernameInput = document.getElementById('access-username-input').value.trim();
+            let limitVal = document.getElementById('cap-modal-limit').value.trim();
+            try {
+                let res = await fetch('/api/access/save_user_limit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: usernameInput, limit: limitVal})
+                });
+                let data = await res.json();
+                if(data.success) {
+                    document.getElementById('capacity-modal').classList.replace('flex', 'hidden');
+                    document.getElementById('access-username-input').value = '';
+                    showPopup("Saved", "User allocated active target slots updated.", "success");
+                    fetchAccessMetrics();
+                }
+            } catch(e) {
+                console.error("Failed to save user limit:", e);
             }
         };
 
