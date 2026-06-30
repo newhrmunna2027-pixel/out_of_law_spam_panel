@@ -109,13 +109,12 @@ def compile_master_bots():
         data = get_user_bots(username)
         member_record = next((m for m in members if m['username'] == username), None)
         
-        # Determine actual active limit of user
-        if member_record:
-            if member_record.get('role') in ['owner', 'creator']:
-                limit_cfg = load_json(LIMIT_FILE, {"global_limit": 40})
-                user_max_active = int(limit_cfg.get('global_limit', 40))
-            else:
-                user_max_active = int(member_record.get('active_limit', 0))
+        # 🚀 FIXED: "creator" ইউজারটির ডাটাবেজে রিকর্ড না থাকলেও সে সর্বদা গ্লোবাল ডিফল্ট লিমিট পাবে
+        if username == "creator" or (member_record and member_record.get('role') in ['owner', 'creator']):
+            limit_cfg = load_json(LIMIT_FILE, {"global_limit": 40})
+            user_max_active = int(limit_cfg.get('global_limit', 40))
+        elif member_record:
+            user_max_active = int(member_record.get('active_limit', 0))
         else:
             user_max_active = 0
             
@@ -342,8 +341,8 @@ def handle_vv_rotations():
         save_json(VV_TIMERS_FILE, vv_timers)
 
 # AUTO DISTRIBUTE AND MATH SCALING ENGINE:
-# Attack limit 1 = vv.json 2 (At least 2 attackers)
-# Attack limit 3 = bot.json 1 (At least 1 tracker)
+# Attack limit 1 = vv.json 2
+# Attack limit 3 = bot.json 1
 # Active limit 1000 = api.json 20 (Ratio of Active Limit / 50)
 def auto_distribute_bots():
     limit_cfg = load_json(LIMIT_FILE, {"global_limit": 40, "api_limit": 2})
