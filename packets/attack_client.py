@@ -142,7 +142,8 @@ class FF_CLient:
                 
         print(f" [Bot #{self.bot_id}] 🛑 Hard Stopped and Disconnected successfully.")
 
-    # Garena stateless packet sequences
+    # packets/attack_client.py ফাইলের জন্য সংশোধিত অংশ:
+
     async def Spam_Single_Target(self, target, bot_uid, region, key, iv):
         try:
             if not self.writer2 or self.writer2.is_closing() or not self.is_running:
@@ -152,28 +153,30 @@ class FF_CLient:
             fake_join_pkt = Fake_Profile_Join(target, region, key, iv)
             team_invite_pkt = Simple_Invite_Packet(target, region, key, iv)
 
-            # High-performance 2.5-second sequence with stateless packets
-            await self.safe_socket_write(room_inv_pkt)
-            await asyncio.sleep(0.5)
+            # High-performance packet bursts (x3) with 0.4s delays
+            # 1. Room Invite x3
+            for _ in range(3):
+                await self.safe_socket_write(room_inv_pkt)
+            await asyncio.sleep(0.4)
             
-            await self.safe_socket_write(fake_join_pkt)
-            await asyncio.sleep(0.5)
+            # 2. Fake Profile Join x3
+            for _ in range(3):
+                await self.safe_socket_write(fake_join_pkt)
+            await asyncio.sleep(0.4)
 
-            await self.safe_socket_write(room_inv_pkt)
-            await asyncio.sleep(0.5)
+            # 3. Room Invite x3
+            for _ in range(3):
+                await self.safe_socket_write(room_inv_pkt)
+            await asyncio.sleep(0.4)
             
-            await self.safe_socket_write(fake_join_pkt)
-            await asyncio.sleep(0.5)
-            
-            await self.safe_socket_write(room_inv_pkt)
-            await asyncio.sleep(0.5)
-            
-            await self.safe_socket_write(team_invite_pkt)
+            # 4. Team Invite x3
+            for _ in range(3):
+                await self.safe_socket_write(team_invite_pkt)
 
         except Exception: 
             self.writer2 = None
 
-    # 🚀 FIXED: Garena active state checker to prevent stale spams on empty list items
+    # 🚀 FIXED: Garena active state checker with 1.6s high-speed rotation barrier
     async def Self_Driving_Attack(self, bot_uid, region, key, iv):
         while self.is_running:
             try:
@@ -188,13 +191,15 @@ class FF_CLient:
                     await asyncio.sleep(2); continue
 
                 now = time.time()
-                sleep_time = 3.6 - (now % 3.6)
+                # 🚀 FIXED: Rotation barrier adjusted strictly to 1.6s
+                sleep_time = 1.6 - (now % 1.6)
                 await asyncio.sleep(sleep_time)
                 
                 total_lists = len(state.ATTACK_TARGETS_DICT)
                 if total_lists == 0: continue
                 
-                ROTATION_STEP = int(time.time() / 3.6)
+                # 🚀 FIXED: Rotation step index scaled cleanly to 1.6s
+                ROTATION_STEP = int(time.time() / 1.6)
                 my_list_id = ((int(self.bot_id) + ROTATION_STEP - 1) % total_lists) + 1
                 my_targets = state.ATTACK_TARGETS_DICT.get(str(my_list_id), [])
                 my_targets = my_targets[:1]
