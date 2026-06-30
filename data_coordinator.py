@@ -10,10 +10,18 @@ import sqlite3
 # MONGODB INTEGRATION & TERMUX DNS FIX
 # ==========================================
 try:
-    import dns.resolver
-    dns.resolver.default_resolver = dns.resolver.Resolver(configure=False)
-    dns.resolver.default_resolver.nameservers = ['8.8.8.8', '1.1.1.1']
-    
+    # 🚀 FIX: Apply the DNS resolver override ONLY on Termux/Android environments.
+    # On Render / cloud Linux hosts, this override breaks local virtual DNS resolution (Atlas SRV).
+    IS_ANDROID = "ANDROID_ROOT" in os.environ or "TERMUX_VERSION" in os.environ
+    if IS_ANDROID:
+        try:
+            import dns.resolver
+            dns.resolver.default_resolver = dns.resolver.Resolver(configure=False)
+            dns.resolver.default_resolver.nameservers = ['8.8.8.8', '1.1.1.1']
+            print("[*] Termux DNS Resolver Patch Applied.")
+        except Exception as dns_err:
+            print(f"[*] Termux DNS patch skipped: {dns_err}")
+            
     from pymongo import MongoClient
     MONGO_AVAILABLE = True
 except ImportError:
@@ -156,13 +164,13 @@ def load_data(filepath, default, bypass_mongo=True):
                 col_name = filename.split('.')[0]
                 rows = list(mongo_db[col_name].find({}, {"_id": 0}))
                 return rows if rows else default
-            # 🚀 Support dynamically generated users configs in MongoDB
+            # Support dynamically generated users configs in MongoDB
             elif normalized_path.startswith('users/'):
                 col_name = "user_configs"
                 doc_id = filename.split('.')[0]
                 row = mongo_db[col_name].find_one({"_id": doc_id}, {"_id": 0})
                 return row.get("data", default) if row else default
-            # 🚀 Fallback config handler for unmatched JSON configuration files in Mongo
+            # Fallback config handler for unmatched JSON configuration files in Mongo
             elif filename.endswith('.json') or filename.endswith('.txt'):
                 row = mongo_db['configs'].find_one({"_id": filename}, {"_id": 0})
                 return row.get("val", default) if row else default
@@ -256,7 +264,6 @@ def save_data(filepath, data, sync_mongo=True):
         except: pass
         finally: conn.close()
 
-    # 🚀 Create backup physical files for ALL JSONs and config maps unconditionally
     if filepath.endswith('.json') or filepath.endswith('.txt'):
         try:
             dir_name = os.path.dirname(normalized_path)
@@ -271,7 +278,14 @@ def save_data(filepath, data, sync_mongo=True):
         try:
             if filename == 'members.json':
                 mongo_db['members'].delete_many({}) 
-                if data: mongo_db['members'].insert_many([dict(x) for x in data])
+                if data: 
+                    mongo_db['members'].insert_many([dict(x) for x in data])
+                
+                # If members are purged back to default creator, drop the user configurations collection entirely
+                if len(data) == 1 and data[0].get('username') == 'creator':
+                    print("[✓] Members Purged! Dropping orphaned MongoDB 'user_configs' dynamically...")
+                    mongo_db['user_configs'].delete_many({})
+
             elif filename == 'active.json':
                 mongo_db['targets'].delete_many({}) 
                 if data: mongo_db['targets'].insert_many([dict(x) for x in data])
@@ -293,12 +307,10 @@ def save_data(filepath, data, sync_mongo=True):
                 col_name = filename.split('.')[0]
                 mongo_db[col_name].delete_many({})
                 if data: mongo_db[col_name].insert_many([dict(x) for x in data])
-            # 🚀 Sync user configs directory files to MongoDB
             elif normalized_path.startswith('users/'):
                 col_name = "user_configs"
                 doc_id = filename.split('.')[0]
                 mongo_db[col_name].replace_one({"_id": doc_id}, {"_id": doc_id, "data": data}, upsert=True)
-            # 🚀 Sync other generic configuration JSON/TXT files to MongoDB fallback
             elif filename.endswith('.json') or filename.endswith('.txt'):
                 mongo_db['configs'].replace_one({"_id": filename}, {"_id": filename, "val": data}, upsert=True)
         except Exception as e: 
@@ -346,7 +358,6 @@ def init_mongo():
     sync_startup('vv_timers.json', {})
     sync_startup('uid.json', {})
 
-    # Sync user configs directory files on startup based on members list
     members_data = load_data('members.json', [])
     for m in members_data:
         uname = m.get('username')
@@ -360,7 +371,6 @@ def init_mongo():
     else:
         save_data('limit.json', {"global_limit": 40, "api_limit": 20, "default_line_3": "TIKTOK [FF00FF]→OUT OF LAW", "allow_user_add_bot": True}, sync_mongo=True)
 
-# 🚀 Conditional startup database sync based on environmental guard RUN_STARTUP_SYNC
 if USE_DB: init_db()
 if MONGO_AVAILABLE and RUN_STARTUP_SYNC: 
     print("[SYSTEM] Execution of master MongoDB sync startup initialized.")
