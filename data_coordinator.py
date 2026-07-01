@@ -150,7 +150,7 @@ def load_data(filepath, default, force_mongo=False, bypass_mongo=None):
     normalized_path = filepath.replace('\\', '/').strip()
     filename = os.path.basename(normalized_path)
     
-    # 🚀 ১. র‍্যাম ক্যাশ চেক
+    # ১. র‍্যাম ক্যাশ চেক
     cache_key = (normalized_path, force_mongo)
     if cache_key in _local_cache:
         val, expiry = _local_cache[cache_key]
@@ -173,7 +173,7 @@ def load_data(filepath, default, force_mongo=False, bypass_mongo=None):
         except Exception: 
             return default
 
-    # 🚀 ২. মঙ্গোডিবি থেকে শুধুমাত্র প্রজেক্ট রান করার প্রথমবারে (force_mongo=True) লোড করা হবে
+    # ২. মঙ্গোডিবি থেকে শুধুমাত্র প্রজেক্ট রান করার প্রথমবারে (force_mongo=True) লোড করা হবে
     if MONGO_CONNECTED and force_mongo:
         try:
             res_data = None
@@ -233,7 +233,7 @@ def load_data(filepath, default, force_mongo=False, bypass_mongo=None):
         except Exception as e:
             print(f"[Mongo Direct Read Error] {filename}: {e}")
 
-    # 🚀 ৩. রানটাইমে মঙ্গোডিবি কানেক্ট থাকলেও সর্বদা লোকাল SQLite/JSON ডাটাবেজ থেকে রিড হবে (অত্যন্ত ফাস্ট)
+    # ৩. রানটাইমে মঙ্গোডিবি কানেক্ট থাকলেও সর্বদা লোকাল SQLite/JSON ডাটাবেজ থেকে রিড হবে
     conn = get_db_connection()
     try:
         if filename == 'members.json':
@@ -378,7 +378,7 @@ def init_mongo():
     print("[SYSTEM] Performing bidirectional startup data sync from MongoDB...")
     
     def sync_startup(filename, default_val):
-        # 🚀 স্টার্টআপে ক্লাউড থেকে ফোর্স রিড করা হচ্ছে
+        # স্টার্টআপে ক্লাউড থেকে ফোর্স রিড করা হচ্ছে
         mongo_data = load_data(filename, default_val, force_mongo=True)
         local_data = load_data(filename, default_val, force_mongo=False)
 
@@ -431,10 +431,8 @@ def init_mongo():
 
     print("[SYSTEM] Startup sync finished successfully.")
 
-# ডাটাবেজ টেবিল এবং প্রথম রান সিঙ্ক ইনিশিয়েট করা
+# ডাটাবেজ টেবিল স্ট্রাকচার লোকাললি তৈরি করা (অত্যন্ত ফাস্ট)
 if USE_DB: 
     init_db()
-if MONGO_AVAILABLE and RUN_STARTUP_SYNC: 
-    init_mongo()
 
 # END OF FILE: data_coordinator.py
