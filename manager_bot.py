@@ -101,6 +101,24 @@ def compile_master_bots():
     master_bot = []
     master_vv = {}
     
+    # active.json থেকে রানিং টার্গেটের পরিমাণ মেপে প্রুনিং করা হবে
+    active_data = load_json(ACTIVE_FILE, [])
+    whitelist = load_json('whitelist.json', {"players": [], "guilds": []})
+    profiles = load_json('profile.json', {})
+    
+    user_target_counts = {}
+    for t in active_data:
+        if not isinstance(t, dict): continue
+        uid = t.get('uid')
+        u_str = str(uid).strip()
+        if u_str in whitelist.get("players", []): continue
+        clan_id = str(profiles.get(u_str, {}).get("clanBasicInfo", {}).get("clanId", "N/A"))
+        if clan_id != "N/A" and clan_id in whitelist.get("guilds", []): continue
+        
+        if t.get('status') == 'Running':
+            uname = t.get('addedByUsername', 'owner')
+            user_target_counts[uname] = user_target_counts.get(uname, 0) + 1
+    
     members = load_json(MEMBERS_FILE, [])
     usernames = [m.get('username') for m in members if m.get('username')]
     if "creator" not in usernames:
@@ -108,18 +126,12 @@ def compile_master_bots():
         
     for username in usernames:
         data = get_user_bots(username)
-        member_record = next((m for m in members if m['username'] == username), None)
         
-        if username == "creator" or (member_record and member_record.get('role') in ['owner', 'creator']):
-            limit_cfg = load_json(LIMIT_FILE, {"global_limit": 40})
-            user_max_active = int(limit_cfg.get('global_limit', 40))
-        elif member_record:
-            user_max_active = int(member_record.get('active_limit', 0))
-        else:
-            user_max_active = 0
-            
-        allowed_vv_count = user_max_active * 2
-        allowed_bot_count = math.ceil(user_max_active / 3)
+        # মেম্বারের রানিং টার্গেটের ওপর ভিত্তি করে অনুপাত নির্ণয়
+        user_active_count = user_target_counts.get(username, 0)
+        
+        allowed_vv_count = user_active_count * 2
+        allowed_bot_count = math.ceil(user_active_count / 3)
 
         normalized_bots = normalize_bot_list(data, 'bot')
         normalized_vvs = normalize_bot_list(data, 'vv')
@@ -198,7 +210,7 @@ def distribute_targets():
         if clan_id != "N/A" and clan_id in whitelist.get("guilds", []): continue
         filtered_uids.append(u_str)
 
-    # check.txt ফিজিক্যাল ডিস্ট্রিবিউশন
+    # check.txt ফিজিক্যাল ডিস্ট্রিবিউশন (Strict 3:1 Ratio)
     tracker_count = len(bot_data)
     check_distribution = {str(i): [] for i in range(1, tracker_count + 1)}
     
@@ -212,17 +224,19 @@ def distribute_targets():
 
     save_json(CHECK_FILE, check_distribution)
 
-    # targets.txt ফিজিক্যাল ডিস্ট্রিবিউশন
+    # targets.txt ফিজিক্যাল ডিস্ট্রিবিউশন (Strict 1:2 Ratio)
     attacker_count = len(vv_data)
     targets_distribution = {str(i): [] for i in range(1, attacker_count + 1)}
     
     if attacker_count > 0:
         for idx, uid in enumerate(filtered_uids):
-            bot_idx = idx + 1
-            if bot_idx <= attacker_count:
-                targets_distribution[str(bot_idx)].append(uid)
-            else:
-                break
+            bot_idx_1 = (2 * idx) + 1
+            bot_idx_2 = (2 * idx) + 2
+            
+            if bot_idx_1 <= attacker_count:
+                targets_distribution[str(bot_idx_1)].append(uid)
+            if bot_idx_2 <= attacker_count:
+                targets_distribution[str(bot_idx_2)].append(uid)
 
     save_json(TARGETS_TXT, targets_distribution)
 
@@ -378,19 +392,19 @@ def auto_distribute_bots():
         if clan_id != "N/A" and clan_id in whitelist.get("guilds", []): continue
         filtered_uids.append(u_str)
 
+    # Ratio: 1:2 Attacker, 3:1 Tracker
     if len(filtered_uids) == 0:
         needed_attackers = 0
         needed_trackers = 0
     else:
-        needed_attackers = max(len(filtered_uids) * 2, 2)
-        needed_trackers = max(math.ceil(len(filtered_uids) / 3), 1)
+        needed_attackers = len(filtered_uids) * 2
+        needed_trackers = math.ceil(len(filtered_uids) / 3)
 
     max_vv_slots = global_limit * 2
     max_tracker_slots = math.ceil(global_limit / 3)
 
     creator_data = None
 
-    # 🚀 FIX: শুধুমাত্র "creator" এর অতিরিক্ত বটস স্কেল ডাউন করা হবে, যা মেম্বারদের বট ডিলিট হওয়া বন্ধ করবে
     if len(vv_bots) > needed_attackers:
         if not creator_data: creator_data = get_user_bots("creator")
         vvs = normalize_bot_list(creator_data, 'vv')
@@ -621,11 +635,13 @@ def main():
 
     save_json(LIVE_FILE, {})
 
-    print("[*] Rebuilding local configuration maps for Render Ephemeral disk...")
+    print("[*] Rebuilding and arranging local configuration maps for Render Ephemeral disk...")
     try:
+        # 🚀 মঙ্গোডিবি লোড সম্পন্ন হওয়ার পরপরই একটিভ টার্গেট অনুযায়ী সব বট ক্রমানুসারে সাজিয়ে নেওয়া হবে
         compile_master_bots()
+        auto_distribute_bots()
         distribute_targets()
-        print("[✓] Configuration maps rebuilt successfully on startup.")
+        print("[✓] Configuration maps arranged successfully on startup.")
     except Exception as e:
         print(f"[!] Startup Map Rebuild Warning: {e}")
 
