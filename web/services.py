@@ -59,11 +59,24 @@ def init_files():
         save_json_locked(FILES['members'], members)
 
 def compile_master_bots():
-    # 🚀 active.json থেকে রানিং টার্গেটের পরিমাণ মেপে প্রুনিং করা হবে (manager_bot.py এর সাথে সিঙ্কড)
     master_bot = []
     master_vv = {}
     
     active_data = load_json_safe(FILES['active'], [])
+    
+    # === STRICT AUTO-HEALING & DE-DUPLICATION (WEB PORTAL SIDE) ===
+    seen_uids = set()
+    cleaned_active = []
+    for t in active_data:
+        if isinstance(t, dict) and t.get('uid'):
+            uid_str = str(t['uid']).strip()
+            if uid_str not in seen_uids:
+                seen_uids.add(uid_str)
+                cleaned_active.append(t)
+    active_data = cleaned_active
+    save_json_locked(FILES['active'], active_data)
+    # ================================================================
+    
     whitelist = load_json_safe(FILES['whitelist'], {"players": [], "guilds": []})
     profiles = load_json_safe(FILES['profile'], {})
     
@@ -86,7 +99,6 @@ def compile_master_bots():
     
     for username in usernames:
         data = get_user_bots(username)
-        member_record = next((m for m in members if m['username'] == username), None)
         
         user_active_count = user_target_counts.get(username, 0)
         
@@ -96,13 +108,22 @@ def compile_master_bots():
         normalized_bots = normalize_bot_list(data, 'bot')
         normalized_vvs = normalize_bot_list(data, 'vv')
 
-        # Limits অনুযায়ী প্রুনিং বা ফিল্টারিং সম্পন্ন করা
         normalized_bots = normalized_bots[:allowed_bot_count]
         normalized_vvs = normalized_vvs[:allowed_vv_count]
 
         master_bot.extend(normalized_bots)
         for v in normalized_vvs:
             master_vv[str(v['uid'])] = v['password']
+
+    # Master list-এ ডুপ্লিকেট ট্র্যাকার বট রিডান্ডেন্সি দূর করা
+    unique_bots = []
+    seen_bot_uids = set()
+    for b in master_bot:
+        b_uid = str(b.get('uid')).strip()
+        if b_uid not in seen_bot_uids:
+            seen_bot_uids.add(b_uid)
+            unique_bots.append(b)
+    master_bot = unique_bots
             
     save_json_locked(FILES['bot'], master_bot)
     save_json_locked(FILES['vv'], master_vv)
@@ -117,7 +138,7 @@ def get_user_usable_limit(username):
 
 def distribute_targets():
     bot_data = load_json_safe(FILES['bot'], [])
-    vv_data = load_json_safe(FILES['vv'], {})  # Attacker বটস লোড করা হলো
+    vv_data = load_json_safe(FILES['vv'], {})
     active_data = load_json_safe(FILES['active'], [])
     
     user_targets = {}
@@ -141,7 +162,6 @@ def distribute_targets():
                 
     save_json_locked(FILES['active'], active_data)
     
-    # হোয়াইটলিস্ট এবং প্রোফাইল ফিল্টারিং (manager_bot.py এর সাথে মিল রেখে)
     whitelist = load_json_safe(FILES['whitelist'], {"players": [], "guilds": []})
     profiles = load_json_safe(FILES['profile'], {})
     filtered_uids = []
@@ -155,20 +175,20 @@ def distribute_targets():
             continue
         filtered_uids.append(u_str)
 
-    # check.txt সিকোয়েন্সিয়াল ডিস্ট্রিবিউশন লজিক (প্রতি ট্র্যাকারে ৩টি করে UID)
+    # check.txt ফিজিক্যাল ডিস্ট্রিবিউশন
     tracker_count = len(bot_data)
     check_distribution = {str(i): [] for i in range(1, tracker_count + 1)}
     
     if tracker_count > 0:
         for idx, uid in enumerate(filtered_uids):
-            bot_idx = (idx // 3) + 1  # প্রতি বটের জন্য ৩টি করে সিকোয়েন্সিয়াল টার্গেট
+            bot_idx = (idx // 3) + 1
             if bot_idx <= tracker_count:
                 check_distribution[str(bot_idx)].append(uid)
             else:
                 break
     save_json_locked(FILES['check_txt'], check_distribution)
 
-    # targets.txt সিকোয়েন্সিয়াল ডিস্ট্রিবিউশন লজিক (Strict 1:2 Ratio)
+    # targets.txt ফিজিক্যাল ডিস্ট্রিবিউশন
     attacker_count = len(vv_data)
     targets_distribution = {str(i): [] for i in range(1, attacker_count + 1)}
     
