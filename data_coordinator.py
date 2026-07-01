@@ -5,6 +5,7 @@ import os
 import sys
 import json
 import sqlite3
+import time
 
 # ==========================================
 # MONGODB INTEGRATION & TERMUX DNS FIX
@@ -37,7 +38,7 @@ RUN_STARTUP_SYNC = os.environ.get("RUN_STARTUP_SYNC", "FALSE") == "TRUE"
 # স্পেশাল রুল: এই ফাইলগুলো সর্বদা ফিজিক্যাল ফাইল হিসেবে কাজ করবে
 ALWAYS_PHYSICAL_FILES = [
     'bots_live_status.json', 
-    'check_bot_status.json', # 🚀 NEW: ফিজিক্যাল ফাইল হিসেবে নিশ্চিত করা হলো
+    'check_bot_status.json', # 🚀 ফিজিক্যাল ফাইল হিসেবে নিশ্চিত করা হলো
     'check.txt', 
     'targets.txt', 
     'vv_timers.json', 
@@ -76,6 +77,18 @@ if MONGO_AVAILABLE and MONGO_SYNC_ENABLED:
         except Exception as e:
             print(f"[!] MongoDB Error: {e}. Defaulting to SQLite/JSON storage.")
             MONGO_CONNECTED = False
+
+# ==========================================
+# 🚀 HIGH-PERFORMANCE IN-MEMORY CACHE
+# ==========================================
+_local_cache = {}
+_cache_ttl = 2.0  # ২ সেকেন্ড র‍্যাম ক্যাশ (ডাটাবেজ কুয়েরি ওভারহেড এড়াতে)
+
+def clear_file_cache(filepath):
+    normalized_path = filepath.replace('\\', '/').strip()
+    _local_cache.pop((normalized_path, None), None)
+    _local_cache.pop((normalized_path, True), None)
+    _local_cache.pop((normalized_path, False), None)
 
 # ==========================================
 # SQLITE DATABASE SETUP
@@ -137,6 +150,13 @@ def load_data(filepath, default, bypass_mongo=None):
     normalized_path = filepath.replace('\\', '/').strip()
     filename = os.path.basename(normalized_path)
     
+    # 🚀 র‍্যাম ক্যাশ হিট চেক
+    cache_key = (normalized_path, bypass_mongo)
+    if cache_key in _local_cache:
+        val, expiry = _local_cache[cache_key]
+        if time.time() < expiry:
+            return _deduplicate_targets(val) if filename == 'active.json' else val
+            
     # স্পেশাল রুল বা Standalone Mode এর জন্য সরাসরি ফাইল থেকে রিড করা হবে
     if not USE_DB or filename in ALWAYS_PHYSICAL_FILES:
         if not os.path.exists(normalized_path):
@@ -147,49 +167,70 @@ def load_data(filepath, default, bypass_mongo=None):
         try:
             with open(normalized_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                return _deduplicate_targets(data) if filename == 'active.json' else data
+                res = _deduplicate_targets(data) if filename == 'active.json' else data
+                _local_cache[cache_key] = (res, time.time() + _cache_ttl)
+                return res
         except Exception: 
             return default
 
     # Orchestrated Mode এ প্রথমে মঙ্গোডিবি থেকে ডেটা যাচাই করা
     if MONGO_CONNECTED and bypass_mongo is not True:
         try:
+            res_data = None
+            found_in_mongo = False
+            
             if filename == 'members.json':
                 rows = list(mongo_db['members'].find({}, {"_id": 0}))
-                if rows: return rows
+                res_data = rows
+                found_in_mongo = True
             elif filename == 'active.json':
                 rows = list(mongo_db['targets'].find({}, {"_id": 0}))
-                if rows: return _deduplicate_targets(rows)
+                res_data = _deduplicate_targets(rows)
+                found_in_mongo = True
             elif filename == 'vv.json':
                 rows = list(mongo_db['vv'].find({}, {"_id": 0}))
-                if rows: return {r['uid']: r['password'] for r in rows}
+                res_data = {r['uid']: r['password'] for r in rows}
+                found_in_mongo = True
             elif filename == 'profile.json':
                 rows = list(mongo_db['profiles'].find({}, {"_id": 0}))
-                if rows: return {r['uid']: r['val'] for r in rows}
+                res_data = {r['uid']: r['val'] for r in rows}
+                found_in_mongo = True
             elif filename == 'limit.json':
                 row = mongo_db['limit'].find_one({}, {"_id": 0})
-                if row: return row
+                res_data = row if row is not None else default
+                found_in_mongo = True
             elif filename in ['api.json', 'bot.json', 'stock.json', 'ex.json']:
                 col_name = filename.split('.')[0]
                 rows = list(mongo_db[col_name].find({}, {"_id": 0}))
-                if rows: return rows
+                res_data = rows
+                found_in_mongo = True
             elif filename == 'whitelist.json':
                 row = mongo_db['whitelist'].find_one({}, {"_id": 0})
-                if row: return row
+                res_data = row if row is not None else default
+                found_in_mongo = True
             elif filename == 'data.json':
                 row = mongo_db['data'].find_one({}, {"_id": 0})
-                if row: return row
+                res_data = row if row is not None else default
+                found_in_mongo = True
             elif filename in ['target_logs.json', 'bad_accounts.json', 'history.json']:
                 col_name = filename.split('.')[0]
                 rows = list(mongo_db[col_name].find({}, {"_id": 0}))
-                if rows: return rows
+                res_data = rows
+                found_in_mongo = True
             elif normalized_path.startswith('users/'):
                 doc_id = filename.split('.')[0]
                 row = mongo_db['user_configs'].find_one({"_id": doc_id}, {"_id": 0})
-                if row: return row.get("data", default)
+                res_data = row.get("data", default) if row is not None else default
+                found_in_mongo = True
             elif filename.endswith('.json') or filename.endswith('.txt'):
                 row = mongo_db['configs'].find_one({"_id": filename}, {"_id": 0})
-                if row: return row.get("val", default)
+                res_data = row.get("val", default) if row is not None else default
+                found_in_mongo = True
+                
+            if found_in_mongo:
+                # 🚀 মঙ্গোডিবি থেকে ডেটা খালি (empty) হলেও রিটার্ন করা হচ্ছে, ফলে ডিলিট অ্যাকশন সঠিকভাবে সিঙ্ক হবে
+                _local_cache[cache_key] = (res_data, time.time() + _cache_ttl)
+                return res_data
         except Exception as e:
             print(f"[Mongo Direct Read Error] {filename}: {e}")
 
@@ -198,28 +239,31 @@ def load_data(filepath, default, bypass_mongo=None):
     try:
         if filename == 'members.json':
             rows = conn.execute("SELECT * FROM members").fetchall()
-            return [{"username": r["username"], "password": r["password"], "name": r["name"], "pic": r["pic"], "role": r["role"], "limit": r["limit_val"], "active_limit": r["active_limit"]} for r in rows] if rows else default
+            res_data = [{"username": r["username"], "password": r["password"], "name": r["name"], "pic": r["pic"], "role": r["role"], "limit": r["limit_val"], "active_limit": r["active_limit"]} for r in rows] if rows else default
         elif filename == 'active.json':
             rows = conn.execute("SELECT * FROM targets").fetchall()
-            return _deduplicate_targets([{"uid": r["uid"], "name": r["name"], "reason": r["reason"], "duration": r["duration"], "addTime": r["addTime"], "expireAt": r["expireAt"], "addedByUsername": r["addedByUsername"], "addedByName": r["addedByName"], "addedByRole": r["addedByRole"], "status": r["status"]} for r in rows]) if rows else default
+            res_data = _deduplicate_targets([{"uid": r["uid"], "name": r["name"], "reason": r["reason"], "duration": r["duration"], "addTime": r["addTime"], "expireAt": r["expireAt"], "addedByUsername": r["addedByUsername"], "addedByName": r["addedByName"], "addedByRole": r["addedByRole"], "status": r["status"]} for r in rows]) if rows else default
         elif filename == 'profile.json':
             result = {}
             for r in conn.execute("SELECT uid, val FROM profiles").fetchall():
                 try: result[r["uid"]] = json.loads(r["val"])
                 except Exception: pass
-            return result if result else default
+            res_data = result if result else default
         elif filename == 'target_logs.json':
             rows = conn.execute("SELECT * FROM target_logs ORDER BY id DESC").fetchall()
-            return [{"action": r["action"], "uid": r["uid"], "name": r["name"], "duration": r["duration"], "by": r["by_val"], "time": r["time_val"]} for r in rows] if rows else default
+            res_data = [{"action": r["action"], "uid": r["uid"], "name": r["name"], "duration": r["duration"], "by": r["by_val"], "time": r["time_val"]} for r in rows] if rows else default
         elif filename == 'bad_accounts.json':
             rows = conn.execute("SELECT * FROM bad_accounts ORDER BY id DESC").fetchall()
-            return [{"uid": r["uid"], "source": r["source"], "reason": r["reason"], "time": r["time_val"]} for r in rows] if rows else default
+            res_data = [{"uid": r["uid"], "source": r["source"], "reason": r["reason"], "time": r["time_val"]} for r in rows] if rows else default
         elif filename == 'history.json':
             rows = conn.execute("SELECT * FROM history ORDER BY id DESC").fetchall()
-            return [{"time": r["time_val"], "action": r["action"], "uid": r["uid"], "name": r["name"]} for r in rows] if rows else default
+            res_data = [{"time": r["time_val"], "action": r["action"], "uid": r["uid"], "name": r["name"]} for r in rows] if rows else default
         else:
             row = conn.execute("SELECT val FROM configs WHERE key = ?", (filename,)).fetchone()
-            return json.loads(row["val"]) if row else default
+            res_data = json.loads(row["val"]) if row else default
+            
+        _local_cache[cache_key] = (res_data, time.time() + _cache_ttl)
+        return res_data
     except Exception:
         return default
     finally:
@@ -232,20 +276,11 @@ def save_data(filepath, data, sync_mongo=None):
     normalized_path = filepath.replace('\\', '/').strip()
     filename = os.path.basename(normalized_path)
     
+    # 🚀 রাইট হওয়ার সাথে সাথেই ক্যাশ ক্লিয়ার করা হচ্ছে
+    clear_file_cache(filepath)
+    
     if filename == 'active.json': 
         data = _deduplicate_targets(data)
-
-    # স্পেশাল রুল বা Standalone Mode এর জন্য শুধুমাত্র ফিজিক্যাল ফাইলে সেভ হবে
-    if not USE_DB or filename in ALWAYS_PHYSICAL_FILES:
-        try:
-            os.makedirs(os.path.dirname(normalized_path) if os.path.dirname(normalized_path) else '.', exist_ok=True)
-            tmp_path = normalized_path + ".tmp"
-            with open(tmp_path, 'w', encoding='utf-8') as f: 
-                json.dump(data, f, indent=4)
-            os.replace(tmp_path, normalized_path)
-            return True
-        except Exception:
-            return False
 
     # ১. লোকাল SQLite ডাটাবেজে সেভ করা
     conn = get_db_connection()
