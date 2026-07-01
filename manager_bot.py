@@ -101,7 +101,6 @@ def compile_master_bots():
     master_bot = []
     master_vv = {}
     
-    # active.json থেকে রানিং টার্গেটের পরিমাণ মেপে প্রুনিং করা হবে
     active_data = load_json(ACTIVE_FILE, [])
     
     # === STRICT AUTO-HEALING & DE-DUPLICATION (STARTUP PROTECTOR) ===
@@ -149,9 +148,10 @@ def compile_master_bots():
         normalized_bots = normalize_bot_list(data, 'bot')
         normalized_vvs = normalize_bot_list(data, 'vv')
 
-        # Limits অনুযায়ী প্রুনিং বা ফিল্টারিং সম্পন্ন করা
-        normalized_bots = normalized_bots[:allowed_bot_count]
-        normalized_vvs = normalized_vvs[:allowed_vv_count]
+        # 🚀 SYSTEM SAFEGUARD: 'creator' (শেয়ারড ব্যাকআপ পুল) অ্যাকাউন্টকে পার্সোনাল প্রুনিং থেকে অব্যাহতি দেওয়া হলো
+        if username != "creator":
+            normalized_bots = normalized_bots[:allowed_bot_count]
+            normalized_vvs = normalized_vvs[:allowed_vv_count]
 
         master_bot.extend(normalized_bots)
         for v in normalized_vvs:
@@ -695,9 +695,8 @@ def main():
 
     save_json(LIVE_FILE, {})
 
-    # 🚀 PORT BINDING FIX: Render-এর পোর্ট স্ক্যানার বাইপাস করতে app.py-কে সবার আগে ফায়ার করা হলো
     p_app = start_process('app.py')
-    time.sleep(2)  # ২ সেকেন্ড ওয়েট করা হবে পোর্ট বাইন্ড হওয়ার জন্য
+    time.sleep(2)
 
     # 🚀 ক্লাউড MongoDB সিঙ্ক অপারেশন (রানটাইম ব্লকিং এড়াতে মডিউল ইমপোর্ট লেভেল থেকে এখানে সরানো হলো)
     print("[*] Initializing MongoDB Startup Sync...")
