@@ -34,13 +34,15 @@ USE_DB = os.environ.get("USE_DB", "FALSE") == "TRUE"
 MONGO_SYNC_ENABLED = os.environ.get("MONGO_SYNC_ENABLED", "FALSE") == "TRUE"
 RUN_STARTUP_SYNC = os.environ.get("RUN_STARTUP_SYNC", "FALSE") == "TRUE"
 
+# 🚀 এই ফাইলগুলো শুধুমাত্র লোকাল ডিস্কে থাকবে, মঙ্গোডিবিতে কখনো আপলোড বা সিঙ্ক হবে না
 ALWAYS_PHYSICAL_FILES = [
     'bots_live_status.json', 
     'check_bot_status.json', 
     'check.txt', 
     'targets.txt', 
-    'vv_timers.json', 
-    'maintenance.json'
+    'maintenance.json',
+    'info.json',
+    'uid.json'
 ]
 
 MONGO_URI = None
@@ -193,7 +195,60 @@ def load_data(filepath, default, force_mongo=False, bypass_mongo=None):
                     _local_cache[cache_key] = (res_data, time.time() + _cache_ttl)
                     return res_data
                 else:
-                    return default
+                    # AUTO-MIGRATION FALLBACK (পুরানো সিস্টেমে ডাটা থাকলে রিকভার করবে)
+                    legacy_loaded = False
+                    res_data = default
+                    
+                    if filename == 'active.json':
+                        legacy_rows = list(mongo_db['targets'].find({}, {"_id": 0}))
+                        if legacy_rows:
+                            res_data = _deduplicate_targets(legacy_rows)
+                            legacy_loaded = True
+                            
+                    elif filename == 'vv.json':
+                        legacy_rows = list(mongo_db['vv'].find({}, {"_id": 0}))
+                        if legacy_rows:
+                            res_data = {}
+                            for r in legacy_rows:
+                                if 'uid' in r:
+                                    res_data[str(r['uid']).strip()] = r.get('password', '')
+                            legacy_loaded = True
+                            
+                    elif filename == 'bot.json':
+                        legacy_rows = list(mongo_db['bot'].find({}, {"_id": 0}))
+                        if legacy_rows:
+                            res_data = []
+                            for r in legacy_rows:
+                                uid = str(r.get('uid', '')).strip()
+                                if uid:
+                                    res_data.append({"uid": uid, "password": r.get('password', '')})
+                            legacy_loaded = True
+                            
+                    elif filename == 'profile.json':
+                        legacy_rows = list(mongo_db['profiles'].find({}, {"_id": 0}))
+                        if legacy_rows:
+                            res_data = {}
+                            for r in legacy_rows:
+                                if 'uid' in r and 'val' in r:
+                                    res_data[str(r['uid'])] = r['val']
+                            legacy_loaded = True
+                            
+                    elif filename in ['api.json', 'stock.json', 'ex.json', 'target_logs.json', 'bad_accounts.json', 'history.json', 'vv_timers.json']:
+                        col_name = filename.split('.')[0]
+                        legacy_rows = list(mongo_db[col_name].find({}, {"_id": 0}))
+                        if legacy_rows:
+                            res_data = legacy_rows
+                            legacy_loaded = True
+                    
+                    if legacy_loaded:
+                        mongo_db['configs'].replace_one(
+                            {"_id": filename}, 
+                            {"_id": filename, "val": res_data}, 
+                            upsert=True
+                        )
+                    
+                    _local_cache[cache_key] = (res_data, time.time() + _cache_ttl)
+                    return res_data
         except Exception as e:
             print(f"[Mongo Direct Read Error] {filename}: {e}")
 
@@ -298,11 +353,9 @@ def save_data(filepath, data, sync_mongo=None):
     if MONGO_CONNECTED and sync_mongo is not False:
         try:
             if filename == 'members.json':
-                # ১. ড্যাশবোর্ড থেকে ডিলিট হওয়া মেম্বারদের MongoDB থেকে সাথে সাথে লাইভ ডিলিট করা
                 current_usernames = [u.get("username") for u in data if u.get("username")]
                 mongo_db['members'].delete_many({"_id": {"$nin": current_usernames}})
                 
-                # ২. মেম্বার অ্যাড বা এডিট করার লাইভ সিঙ্ক (Upsert with unique ID)
                 for u in data:
                     username = u.get("username")
                     if username:
@@ -371,7 +424,7 @@ def init_mongo():
     sync_startup('target_logs.json', [])
     sync_startup('bad_accounts.json', [])
     sync_startup('history.json', [])
-    sync_startup('uid.json', {})
+    sync_startup('vv_timers.json', {})  # 🚀 টাইমার ফাইলটি মঙ্গোডিবির স্টার্টআপ সিঙ্কে যুক্ত করা হলো
 
     members_data = load_data('members.json', [])
     for m in members_data:
