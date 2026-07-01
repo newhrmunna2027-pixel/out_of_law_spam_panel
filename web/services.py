@@ -132,7 +132,7 @@ def get_user_usable_limit(username):
     members = load_json_safe(FILES['members'], [])
     user = next((m for m in members if m['username'] == username), None)
     if not user: return 0
-    if is_owner(user): return int(get_limit_config().get('global_limit', 40))
+    if is_owner(user): return int(get_limit_config().get('global_limit', 1000))
     user_bots = get_user_bots(username)
     return min(math.floor(len(normalize_bot_list(user_bots, 'vv')) / 2), len(normalize_bot_list(user_bots, 'bot')) * 3) + int(user.get('active_limit', 0))
 
@@ -153,7 +153,17 @@ def distribute_targets():
     for uname, targets in user_targets.items():
         usable_limit = get_user_usable_limit(uname)
         targets.sort(key=lambda x: x.get('addTime', 0)) 
-        for i, t in enumerate(targets):
+        
+        # === DEDUPLICATE TARGETS ADDED BY INDIVIDUAL USERS ===
+        user_seen = set()
+        user_unique_targets = []
+        for t in targets:
+            t_uid = str(t.get('uid')).strip()
+            if t_uid not in user_seen:
+                user_seen.add(t_uid)
+                user_unique_targets.append(t)
+        
+        for i, t in enumerate(user_unique_targets):
             if i < usable_limit:
                 running_uids.append(t['uid'])
                 t['status'] = 'Running'
@@ -166,16 +176,21 @@ def distribute_targets():
     profiles = load_json_safe(FILES['profile'], {})
     filtered_uids = []
     
+    # === STRICT DEDUPLICATION AND CLEANING FOR RUNNING TARGETS ===
+    seen_running = set()
     for u in running_uids:
         u_str = str(u).strip()
+        if u_str in seen_running: 
+            continue
         if u_str in whitelist.get("players", []): 
             continue
         clan_id = str(profiles.get(u_str, {}).get("clanBasicInfo", {}).get("clanId", "N/A"))
         if clan_id != "N/A" and clan_id in whitelist.get("guilds", []): 
             continue
         filtered_uids.append(u_str)
+        seen_running.add(u_str)
 
-    # check.txt ফিজিক্যাল ডিস্ট্রিবিউশন
+    # 🚀 check.txt ফিজিক্যাল ডিস্ট্রিবিউশন (Strict Max 3 UIDs per Tracker bot list)
     tracker_count = len(bot_data)
     check_distribution = {str(i): [] for i in range(1, tracker_count + 1)}
     
@@ -183,24 +198,47 @@ def distribute_targets():
         for idx, uid in enumerate(filtered_uids):
             bot_idx = (idx // 3) + 1
             if bot_idx <= tracker_count:
-                check_distribution[str(bot_idx)].append(uid)
-            else:
-                break
+                if len(check_distribution[str(bot_idx)]) < 3:  # STRICT MAX 3 UIDs PER LIST
+                    check_distribution[str(bot_idx)].append(uid)
+                    
     save_json_locked(FILES['check_txt'], check_distribution)
 
-    # targets.txt ফিজিক্যাল ডিস্ট্রিবিউশন
+    # 🚀 targets.txt ফিজিক্যাল ডিস্ট্রিবিউশন (Strict Max 1 UID per Attacker bot list)
+    # info.json থেকে লাইভ ট্র্যাক করা অনলাইন UIDs সংগ্রহ করে স্প্যাম টার্গেট তৈরি করা হবে
+    info_data = load_json_safe(FILES['info'], {})
+    info_uids = []
+    if info_data:
+        info_uids = [str(uid).strip() for uid, val in info_data.items() if isinstance(val, dict) and val.get("status") != "OFFLINE"]
+        info_uids = [u for u in info_uids if u in filtered_uids]
+    else:
+        info_uids = filtered_uids
+
+    seen_info = set()
+    unique_info_uids = []
+    for u in info_uids:
+        if u not in seen_info:
+            unique_info_uids.append(u)
+            seen_info.add(u)
+
     attacker_count = len(vv_data)
     targets_distribution = {str(i): [] for i in range(1, attacker_count + 1)}
     
-    if attacker_count > 0:
-        for idx, uid in enumerate(filtered_uids):
+    if attacker_count > 0 and unique_info_uids:
+        # প্রতিটি টার্গেটের ২টি করে অ্যাটাকার বট প্রয়োজন। ক্ষমতার চেয়ে বেশি UID হলে অতিরিক্ত UID বাদ (Ignore) যাবে
+        max_targets_supported = attacker_count // 2
+        uids_to_assign = unique_info_uids[:max_targets_supported]  # 🚀 IGNORE EXTRA UIDs BEYOND CAPACITY
+        
+        for idx, uid in enumerate(uids_to_assign):
             bot_idx_1 = (2 * idx) + 1
             bot_idx_2 = (2 * idx) + 2
             
             if bot_idx_1 <= attacker_count:
-                targets_distribution[str(bot_idx_1)].append(uid)
+                if len(targets_distribution[str(bot_idx_1)]) < 1:  # STRICT MAX 1 UID PER LIST
+                    targets_distribution[str(bot_idx_1)].append(uid)
             if bot_idx_2 <= attacker_count:
-                targets_distribution[str(bot_idx_2)].append(uid)
+                if len(targets_distribution[str(bot_idx_2)]) < 1:  # STRICT MAX 1 UID PER LIST
+                    targets_distribution[str(bot_idx_2)].append(uid)
+                            
     save_json_locked(FILES['targets_txt'], targets_distribution)
 
 def check_expired_targets():
