@@ -38,7 +38,7 @@ RUN_STARTUP_SYNC = os.environ.get("RUN_STARTUP_SYNC", "FALSE") == "TRUE"
 # স্পেশাল রুল: এই ফাইলগুলো সর্বদা ফিজিক্যাল ফাইল হিসেবে কাজ করবে
 ALWAYS_PHYSICAL_FILES = [
     'bots_live_status.json', 
-    'check_bot_status.json', # 🚀 ফিজিক্যাল ফাইল হিসেবে নিশ্চিত করা হলো
+    'check_bot_status.json', 
     'check.txt', 
     'targets.txt', 
     'vv_timers.json', 
@@ -51,7 +51,7 @@ mongo_client = None
 mongo_db = None
 MONGO_CONNECTED = False
 
-# ডাটাবেজ মোড এবং মঙ্গোডিবি সিঙ্ক সক্ষম হলে কানেকশন সেটআপ করা
+# ডাটাবেজ মোড এবং মঙ্গোডিবি সিঙ্ক সক্ষম হলে কানেকশন setup করা
 if MONGO_AVAILABLE and MONGO_SYNC_ENABLED:
     MONGO_URI = os.environ.get("MONGO_URI")
     MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME")
@@ -82,7 +82,7 @@ if MONGO_AVAILABLE and MONGO_SYNC_ENABLED:
 # 🚀 HIGH-PERFORMANCE IN-MEMORY CACHE
 # ==========================================
 _local_cache = {}
-_cache_ttl = 2.0  # ২ সেকেন্ড র‍্যাম ক্যাশ (ডাটাবেজ কুয়েরি ওভারহেড এড়াতে)
+_cache_ttl = 2.0  # ২ সেকেন্ড র‍্যাম ক্যাশ
 
 def clear_file_cache(filepath):
     normalized_path = filepath.replace('\\', '/').strip()
@@ -144,14 +144,14 @@ def parse_expire_time(expire_at):
         return 'permanent'
 
 # ==========================================
-# UNIVERSAL DATA LOADER
+# UNIVERSAL DATA LOADER (LOCAL-FIRST DESIGN)
 # ==========================================
-def load_data(filepath, default, bypass_mongo=None):
+def load_data(filepath, default, force_mongo=False, bypass_mongo=None):
     normalized_path = filepath.replace('\\', '/').strip()
     filename = os.path.basename(normalized_path)
     
-    # 🚀 র‍্যাম ক্যাশ হিট চেক
-    cache_key = (normalized_path, bypass_mongo)
+    # 🚀 ১. র‍্যাম ক্যাশ চেক
+    cache_key = (normalized_path, force_mongo)
     if cache_key in _local_cache:
         val, expiry = _local_cache[cache_key]
         if time.time() < expiry:
@@ -173,8 +173,8 @@ def load_data(filepath, default, bypass_mongo=None):
         except Exception: 
             return default
 
-    # Orchestrated Mode এ প্রথমে মঙ্গোডিবি থেকে ডেটা যাচাই করা
-    if MONGO_CONNECTED and bypass_mongo is not True:
+    # 🚀 ২. মঙ্গোডিবি থেকে শুধুমাত্র প্রজেক্ট রান করার প্রথমবারে (force_mongo=True) লোড করা হবে
+    if MONGO_CONNECTED and force_mongo:
         try:
             res_data = None
             found_in_mongo = False
@@ -228,13 +228,12 @@ def load_data(filepath, default, bypass_mongo=None):
                 found_in_mongo = True
                 
             if found_in_mongo:
-                # 🚀 মঙ্গোডিবি থেকে ডেটা খালি (empty) হলেও রিটার্ন করা হচ্ছে, ফলে ডিলিট অ্যাকশন সঠিকভাবে সিঙ্ক হবে
                 _local_cache[cache_key] = (res_data, time.time() + _cache_ttl)
                 return res_data
         except Exception as e:
             print(f"[Mongo Direct Read Error] {filename}: {e}")
 
-    # মঙ্গোডিবি অফলাইন বা বাইপাস হলে SQLite থেকে ডেটা লোড করা
+    # 🚀 ৩. রানটাইমে মঙ্গোডিবি কানেক্ট থাকলেও সর্বদা লোকাল SQLite/JSON ডাটাবেজ থেকে রিড হবে (অত্যন্ত ফাস্ট)
     conn = get_db_connection()
     try:
         if filename == 'members.json':
@@ -276,7 +275,7 @@ def save_data(filepath, data, sync_mongo=None):
     normalized_path = filepath.replace('\\', '/').strip()
     filename = os.path.basename(normalized_path)
     
-    # 🚀 রাইট হওয়ার সাথে সাথেই ক্যাশ ক্লিয়ার করা হচ্ছে
+    # ক্যাশ ইনভ্যালিডেশন
     clear_file_cache(filepath)
     
     if filename == 'active.json': 
@@ -322,7 +321,7 @@ def save_data(filepath, data, sync_mongo=None):
     finally:
         conn.close()
 
-    # ব্যাকআপ সুরক্ষার জন্য লোকাল ফিজিক্যাল ফাইলেও সংরক্ষণ করা
+    # লোকাল ফিজিক্যাল ফাইলে সংরক্ষণ
     try:
         os.makedirs(os.path.dirname(normalized_path) if os.path.dirname(normalized_path) else '.', exist_ok=True)
         tmp_path = normalized_path + ".tmp"
@@ -332,7 +331,7 @@ def save_data(filepath, data, sync_mongo=None):
     except Exception:
         pass
 
-    # ২. ক্লাউড MongoDB-তে রিয়েল-টাইম ডাটা সিঙ্ক্রোনাইজেশন (ওয়েব রিমুভাল পার্মানেন্ট ডিলিশন সাপোর্ট)
+    # ২. ক্লাউড MongoDB-তে রিয়েল-টাইম ডাটা আপলোড (সিনক্রোনাইজেশন)
     if MONGO_CONNECTED and sync_mongo is not False:
         try:
             if filename == 'members.json':
@@ -376,21 +375,22 @@ def init_mongo():
     if not MONGO_CONNECTED: 
         return
     
-    print("[SYSTEM] Performing bidirectional startup data sync...")
+    print("[SYSTEM] Performing bidirectional startup data sync from MongoDB...")
     
     def sync_startup(filename, default_val):
-        mongo_data = load_data(filename, default_val, bypass_mongo=False)
-        local_data = load_data(filename, default_val, bypass_mongo=True)
+        # 🚀 স্টার্টআপে ক্লাউড থেকে ফোর্স রিড করা হচ্ছে
+        mongo_data = load_data(filename, default_val, force_mongo=True)
+        local_data = load_data(filename, default_val, force_mongo=False)
 
-        # ক্লাউডে ডাটা থাকলে ক্লাউডের ডাটা লোকালে লোড হবে, নতুবা লোকাল ডাটা ক্লাউডে আপলোড হবে
+        # ক্লাউডে ডাটা থাকলে ক্লাউডের ডাটা লোকালে রাইট হবে, নতুবা লোকাল ডাটা ক্লাউডে আপলোড হবে
         if mongo_data and mongo_data != default_val:
             save_data(filename, mongo_data, sync_mongo=False)
         elif local_data and local_data != default_val:
             save_data(filename, local_data, sync_mongo=True)
 
     # অ্যাডমিন প্যানেল এবং মেম্বার লিস্ট সিঙ্ক করা
-    members_mongo = load_data('members.json', [], bypass_mongo=False)
-    members_local = load_data('members.json', [], bypass_mongo=True)
+    members_mongo = load_data('members.json', [], force_mongo=True)
+    members_local = load_data('members.json', [], force_mongo=False)
     if members_mongo: 
         save_data('members.json', members_mongo, sync_mongo=False)
     elif members_local: 
@@ -420,8 +420,8 @@ def init_mongo():
         if uname:
             sync_startup(f"users/{uname}.json", {"bot": [], "vv": [], "failed": []})
 
-    limits_mongo = load_data('limit.json', {}, bypass_mongo=False)
-    limits_local = load_data('limit.json', {}, bypass_mongo=True)
+    limits_mongo = load_data('limit.json', {}, force_mongo=True)
+    limits_local = load_data('limit.json', {}, force_mongo=False)
     if limits_mongo: 
         save_data('limit.json', limits_mongo, sync_mongo=False)
     elif limits_local: 
