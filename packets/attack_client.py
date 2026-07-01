@@ -221,7 +221,7 @@ class FF_CLient:
                 ROTATION_STEP = int(time.time() / 1.0)
                 my_list_id = ((int(self.bot_id) + ROTATION_STEP - 1) % total_lists) + 1
                 my_targets = state.ATTACK_TARGETS_DICT.get(str(my_list_id), [])
-                my_targets = my_targets[:1]
+                my_targets = my_targets[:2]
                 
                 if my_targets:
                     state.Update_Bot_Status(self.bot_id, f"🔥 Spamming List-{my_list_id}", bot_uid, self.nickname, self.vv_key)
