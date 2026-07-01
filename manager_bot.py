@@ -13,9 +13,10 @@ from threading import Thread
 # ==========================================
 # 🛑 ORCHESTRATOR ENVIRONMENT SETTINGS
 # ==========================================
+# অভিভাবক প্রসেস হিসেবে ডাটাবেজ এবং মঙ্গোডিবি সিঙ্ক চালুর ঘোষণা
 os.environ["USE_DB"] = "TRUE"
 os.environ["MONGO_SYNC_ENABLED"] = "TRUE"
-os.environ["RUN_STARTUP_SYNC"] = "TRUE"
+os.environ["RUN_STARTUP_SYNC"] = "TRUE"  # শুধুমাত্র ম্যানেজার বটের প্রথম রানে সিঙ্ক ট্রিপ হবে
 
 import data_coordinator
 
@@ -100,6 +101,7 @@ def compile_master_bots():
     master_bot = []
     master_vv = {}
     
+    # active.json থেকে রানিং টার্গেটের পরিমাণ মেপে প্রুনিং করা হবে
     active_data = load_json(ACTIVE_FILE, [])
     
     # === STRICT AUTO-HEALING & DE-DUPLICATION (STARTUP PROTECTOR) ===
@@ -147,6 +149,7 @@ def compile_master_bots():
         normalized_bots = normalize_bot_list(data, 'bot')
         normalized_vvs = normalize_bot_list(data, 'vv')
 
+        # Limits অনুযায়ী প্রুনিং বা ফিল্টারিং সম্পন্ন করা
         normalized_bots = normalized_bots[:allowed_bot_count]
         normalized_vvs = normalized_vvs[:allowed_vv_count]
 
@@ -191,7 +194,7 @@ def get_user_usable_limit(username):
     
     return self_usable + owner_given_active_limit
 
-# STRICT MAPS DISTRIBUTION ENFORCED UNCONDITIONALLY (STRICT DE-DUPLICATION):
+# STRICT MAPS DISTRIBUTION ENFORCED UNCONDITIONALLY (STRICT DE-DUPLICATION & PIPELINE):
 def distribute_targets():
     bot_data = load_json(BOT_FILE, []) 
     vv_data = load_json(VV_FILE, {})   
@@ -232,7 +235,7 @@ def distribute_targets():
     profiles = load_json('profile.json', {})
     filtered_uids = []
     
-    # ২. গ্লোবাল রানিং টার্গেটের ডুপ্লিকেটUID এবং হোয়াইটলিস্ট স্ক্রীনিং
+    # ২. গ্লোবাল রানিং টার্গেটের ডুপ্লিকেট UID এবং হোয়াইটলিস্ট স্ক্রীনিং
     seen_running = set()
     for u in running_uids:
         u_str = str(u).strip()
@@ -243,7 +246,7 @@ def distribute_targets():
         filtered_uids.append(u_str)
         seen_running.add(u_str)
 
-    # check.txt ফিজিক্যাল ডিস্ট্রিবিউশন (Strict 3:1 Ratio)
+    # 🚀 check.txt ফিজিক্যাল ডিস্ট্রিবিউশন (Strict Max 3 UIDs per Tracker bot list)
     tracker_count = len(bot_data)
     check_distribution = {str(i): [] for i in range(1, tracker_count + 1)}
     
@@ -251,25 +254,46 @@ def distribute_targets():
         for idx, uid in enumerate(filtered_uids):
             bot_idx = (idx // 3) + 1
             if bot_idx <= tracker_count:
-                check_distribution[str(bot_idx)].append(uid)
-            else:
-                break
+                if len(check_distribution[str(bot_idx)]) < 3:  # STRICT MAX 3 UIDs PER LIST
+                    check_distribution[str(bot_idx)].append(uid)
 
     save_json(CHECK_FILE, check_distribution)
 
-    # targets.txt ফিজিক্যাল ডিস্ট্রিবিউশন (Strict 1:2 Ratio)
+    # 🚀 targets.txt ফিজিক্যাল ডিস্ট্রিবিউশন (Strict Max 1 UID per Attacker bot list)
+    # info.json থেকে লাইভ ট্র্যাক করা অনলাইন UIDs সংগ্রহ করে স্প্যাম টার্গেট তৈরি করা হবে
+    info_data = load_json(INFO_JSON, {})
+    info_uids = []
+    if info_data:
+        info_uids = [str(uid).strip() for uid, val in info_data.items() if isinstance(val, dict) and val.get("status") != "OFFLINE"]
+        info_uids = [u for u in info_uids if u in filtered_uids]
+    else:
+        info_uids = filtered_uids
+
+    seen_info = set()
+    unique_info_uids = []
+    for u in info_uids:
+        if u not in seen_info:
+            unique_info_uids.append(u)
+            seen_info.add(u)
+
     attacker_count = len(vv_data)
     targets_distribution = {str(i): [] for i in range(1, attacker_count + 1)}
     
-    if attacker_count > 0:
-        for idx, uid in enumerate(filtered_uids):
+    if attacker_count > 0 and unique_info_uids:
+        # প্রতিটি টার্গেটের ২টি করে অ্যাটাকার বট প্রয়োজন। ক্ষমতার চেয়ে বেশি UID হলে অতিরিক্ত UID বাদ (Ignore) যাবে
+        max_targets_supported = attacker_count // 2
+        uids_to_assign = unique_info_uids[:max_targets_supported]  # 🚀 IGNORE EXTRA UIDs BEYOND CAPACITY
+        
+        for idx, uid in enumerate(uids_to_assign):
             bot_idx_1 = (2 * idx) + 1
             bot_idx_2 = (2 * idx) + 2
             
             if bot_idx_1 <= attacker_count:
-                targets_distribution[str(bot_idx_1)].append(uid)
+                if len(targets_distribution[str(bot_idx_1)]) < 1:  # STRICT MAX 1 UID PER LIST
+                    targets_distribution[str(bot_idx_1)].append(uid)
             if bot_idx_2 <= attacker_count:
-                targets_distribution[str(bot_idx_2)].append(uid)
+                if len(targets_distribution[str(bot_idx_2)]) < 1:  # STRICT MAX 1 UID PER LIST
+                    targets_distribution[str(bot_idx_2)].append(uid)
 
     save_json(TARGETS_TXT, targets_distribution)
 
@@ -418,12 +442,15 @@ def auto_distribute_bots():
     profiles = load_json('profile.json', {})
     filtered_uids = []
     
+    seen_running = set()
     for u in total_active_uids:
         u_str = str(u).strip()
+        if u_str in seen_running: continue
         if u_str in whitelist.get("players", []): continue
         clan_id = str(profiles.get(u_str, {}).get("clanBasicInfo", {}).get("clanId", "N/A"))
         if clan_id != "N/A" and clan_id in whitelist.get("guilds", []): continue
         filtered_uids.append(u_str)
+        seen_running.add(u_str)
 
     # Ratio: 1:2 Attacker, 3:1 Tracker
     if len(filtered_uids) == 0:
