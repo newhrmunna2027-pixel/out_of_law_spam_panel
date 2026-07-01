@@ -271,7 +271,7 @@ def handle_vv_rotations():
             del vv_timers[uid]
             changed = True
             
-    expired_uids = [uid for uid, st in list(vv_timers.items()) if current_time - st >= 14400]
+    expired_uids = [uid for uid, st in list(vv_timers.items()) if current_time - st >= 7200]
     if expired_uids:
         print(f"\n[🕒 ROTATION] Detected {len(expired_uids)} expired attacker bot(s). Transferring to ex.json...")
         for uid in expired_uids:
