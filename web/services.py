@@ -59,29 +59,38 @@ def init_files():
         save_json_locked(FILES['members'], members)
 
 def compile_master_bots():
-    # 🚀 FIX: ড্যাশবোর্ডের মাস্টার কম্পাইলেশন প্রুনিং লিমিট যুক্ত করা হলো (manager_bot.py এর সাথে ১০০% সিঙ্কড)
+    # active.json থেকে রানিং টার্গেটের পরিমাণ মেপে প্রুনিং করা হবে (manager_bot.py এর সাথে সিঙ্কড)
     master_bot = []
     master_vv = {}
+    
+    active_data = load_json_safe(FILES['active'], [])
+    whitelist = load_json_safe(FILES['whitelist'], {"players": [], "guilds": []})
+    profiles = load_json_safe(FILES['profile'], {})
+    
+    user_target_counts = {}
+    for t in active_data:
+        if not isinstance(t, dict): continue
+        uid = t.get('uid')
+        u_str = str(uid).strip()
+        if u_str in whitelist.get("players", []): continue
+        clan_id = str(profiles.get(u_str, {}).get("clanBasicInfo", {}).get("clanId", "N/A"))
+        if clan_id != "N/A" and clan_id in whitelist.get("guilds", []): continue
+        
+        if t.get('status') == 'Running':
+            uname = t.get('addedByUsername', 'owner')
+            user_target_counts[uname] = user_target_counts.get(uname, 0) + 1
+            
     members = load_json_safe(FILES['members'], [])
     usernames = [m.get('username') for m in members if m.get('username')]
     if "creator" not in usernames: usernames.append("creator")
     
     for username in usernames:
         data = get_user_bots(username)
-        member_record = next((m for m in members if m['username'] == username), None)
         
-        limit_cfg = get_limit_config()
-        global_limit = int(limit_cfg.get('global_limit', 40))
-
-        if username == "creator" or (member_record and member_record.get('role') in ['owner', 'creator']):
-            user_max_active = global_limit
-        elif member_record:
-            user_max_active = int(member_record.get('active_limit', 0))
-        else:
-            user_max_active = 0
-            
-        allowed_vv_count = user_max_active * 2
-        allowed_bot_count = math.ceil(user_max_active / 3)
+        user_active_count = user_target_counts.get(username, 0)
+        
+        allowed_vv_count = user_active_count * 2
+        allowed_bot_count = math.ceil(user_active_count / 3)
 
         normalized_bots = normalize_bot_list(data, 'bot')
         normalized_vvs = normalize_bot_list(data, 'vv')
@@ -132,8 +141,8 @@ def distribute_targets():
     save_json_locked(FILES['active'], active_data)
     
     # হোয়াইটলিস্ট এবং প্রোফাইল ফিল্টারিং (manager_bot.py এর সাথে মিল রেখে)
-    whitelist = load_json_safe('whitelist.json', {"players": [], "guilds": []})
-    profiles = load_json_safe('profile.json', {})
+    whitelist = load_json_safe(FILES['whitelist'], {"players": [], "guilds": []})
+    profiles = load_json_safe(FILES['profile'], {})
     filtered_uids = []
     
     for u in running_uids:
@@ -158,17 +167,19 @@ def distribute_targets():
                 break
     save_json_locked(FILES['check_txt'], check_distribution)
 
-    # targets.txt সিকোয়েন্সিয়াল ডিস্ট্রিবিউশন লজিক (প্রতি অ্যাটাকারে ১টি করে UID)
+    # targets.txt সিকোয়েন্সিয়াল ডিস্ট্রিবিউশন লজিক (Strict 1:2 Ratio)
     attacker_count = len(vv_data)
     targets_distribution = {str(i): [] for i in range(1, attacker_count + 1)}
     
     if attacker_count > 0:
         for idx, uid in enumerate(filtered_uids):
-            bot_idx = idx + 1  # প্রতি অ্যাটাকারের জন্য ১টি করে সিকোয়েন্সিয়াল টার্গেট
-            if bot_idx <= attacker_count:
-                targets_distribution[str(bot_idx)].append(uid)
-            else:
-                break
+            bot_idx_1 = (2 * idx) + 1
+            bot_idx_2 = (2 * idx) + 2
+            
+            if bot_idx_1 <= attacker_count:
+                targets_distribution[str(bot_idx_1)].append(uid)
+            if bot_idx_2 <= attacker_count:
+                targets_distribution[str(bot_idx_2)].append(uid)
     save_json_locked(FILES['targets_txt'], targets_distribution)
 
 # END OF FILE: web/services.py
