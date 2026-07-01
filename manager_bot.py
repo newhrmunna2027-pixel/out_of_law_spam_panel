@@ -101,6 +101,7 @@ def compile_master_bots():
     master_bot = []
     master_vv = {}
     
+    # active.json থেকে রানিং টার্গেটের পরিমাণ মেপে প্রুনিং করা হবে
     active_data = load_json(ACTIVE_FILE, [])
     
     # === STRICT AUTO-HEALING & DE-DUPLICATION (STARTUP PROTECTOR) ===
@@ -148,7 +149,7 @@ def compile_master_bots():
         normalized_bots = normalize_bot_list(data, 'bot')
         normalized_vvs = normalize_bot_list(data, 'vv')
 
-        # 🚀 SYSTEM SAFEGUARD: 'creator' (শেয়ারড ব্যাকআপ পুল) অ্যাকাউন্টকে পার্সোনাল প্রুনিং থেকে অব্যাহতি দেওয়া হলো
+        # SYSTEM SAFEGUARD: 'creator' (শেয়ারড ব্যাকআপ পুল) অ্যাকাউন্টকে পার্সোনাল প্রুনিং থেকে অব্যাহতি দেওয়া হলো
         if username != "creator":
             normalized_bots = normalized_bots[:allowed_bot_count]
             normalized_vvs = normalized_vvs[:allowed_vv_count]
@@ -666,11 +667,18 @@ def kill_orphaned_instances():
         except Exception: pass
 
 def system_daemon():
+    last_distribute = 0
     while True:
         try:
             process_bad_accounts()
             handle_vv_rotations() 
             auto_distribute_bots()
+            
+            # 🚀 LIVE AUTO-SYNC: প্রতি ৫ সেকেন্ড পর পর 'info.json' স্ক্যান করে টার্গেট ও লিডার আইডি ডিস্ট্রিবিউট করবে
+            now = time.time()
+            if now - last_distribute >= 3:
+                distribute_targets()
+                last_distribute = now
         except Exception: pass
         time.sleep(1)
 
@@ -711,7 +719,7 @@ def main():
     p_app = start_process('app.py')
     time.sleep(2)
 
-    # 🚀 ক্লাউড MongoDB সিঙ্ক অপারেশন (রানটাইম ব্লকিং এড়াতে মডিউল ইমপোর্ট লেভেল থেকে এখানে সরানো হলো)
+    # 🚀 ক্লাউড MongoDB সিঙ্ক অপারেশন (স্টার্টআপ সিঙ্ক ট্রিপ)
     print("[*] Initializing MongoDB Startup Sync...")
     try:
         data_coordinator.init_mongo()
