@@ -306,7 +306,7 @@ def remove_failed_bot():
 @app.route('/api/dashboard', methods=['GET'])
 def get_dashboard():
     if not session.get('logged_in'): return jsonify({"error": "Unauthorized"}), 401
-    check_expired_targets()
+    # check_expired_targets()  # 🚀 REMOVED: Now handled by background thread to prevent request blocking
     active_targets = load_json_safe(FILES['active'], [])
     
     # ১. লাইভ অ্যাটাকার বট স্ট্যাটাস (vv.json)
@@ -332,7 +332,7 @@ def get_dashboard():
 @app.route('/api/targets', methods=['GET'])
 def get_targets_panel():
     if not session.get('logged_in'): return jsonify([]), 401
-    check_expired_targets()
+    # check_expired_targets()  # 🚀 REMOVED: Now handled by background thread to prevent request blocking
     targets = load_json_safe(FILES['active'], []); profiles = load_json_safe(FILES['profile'], {})
     for t in targets:
         if not isinstance(t, dict): continue
@@ -613,4 +613,19 @@ def clear_database_data():
         else: return jsonify({"success": False, "msg": "Unknown database category."}), 400
         return jsonify({"success": True, "msg": msg})
     except Exception as e: return jsonify({"success": False, "msg": str(e)}), 500
+
+import threading
+
+def run_expired_targets_checker_loop():
+    """🚀 ড্যাশবোর্ডকে সচল রাখতে প্রতি ১০ সেকেন্ড পর পর ব্যাকগ্রাউন্ডে স্প্যাম এক্সপায়ারি ও TTL ডাটাবেজ আপডেট চালাবে"""
+    while True:
+        try:
+            check_expired_targets()
+        except Exception as e:
+            print(f"[!] Error in background expired targets check: {e}")
+        time.sleep(10)
+
+# ব্যাকগ্রাউন্ড থ্রেড স্টার্ট করা হলো
+threading.Thread(target=run_expired_targets_checker_loop, daemon=True).start()
+
 # END OF FILE: web/routes.py
