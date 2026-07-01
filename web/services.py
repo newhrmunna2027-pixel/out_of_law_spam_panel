@@ -84,27 +84,69 @@ def get_user_usable_limit(username):
 
 def distribute_targets():
     bot_data = load_json_safe(FILES['bot'], [])
+    vv_data = load_json_safe(FILES['vv'], {})  # 🚀 Attacker বটস লোড করা হলো
     active_data = load_json_safe(FILES['active'], [])
+    
     user_targets = {}
     for t in active_data:
         if isinstance(t, dict):
             uname = t.get('addedByUsername', 'owner')
-            if uname not in user_targets: user_targets[uname] = []
+            if uname not in user_targets: 
+                user_targets[uname] = []
             user_targets[uname].append(t)
+            
     running_uids = []
     for uname, targets in user_targets.items():
         usable_limit = get_user_usable_limit(uname)
         targets.sort(key=lambda x: x.get('addTime', 0)) 
         for i, t in enumerate(targets):
             if i < usable_limit:
-                running_uids.append(t['uid']); t['status'] = 'Running'
-            else: t['status'] = 'Paused (BY OWNER)'
-            
-        save_json_locked(FILES['active'], active_data)
-        bot_count = max(len(bot_data) if isinstance(bot_data, list) else 1, 1)
-        distribution = {str(i): [] for i in range(1, bot_count + 1)}
-        for index, uid in enumerate(running_uids): distribution[str((index % bot_count) + 1)].append(uid)
-        save_json_locked(FILES['check_txt'], distribution)
+                running_uids.append(t['uid'])
+                t['status'] = 'Running'
+            else: 
+                t['status'] = 'Paused (BY OWNER)'
+                
+    save_json_locked(FILES['active'], active_data)
+    
+    # 🚀 হোয়াইটলিস্ট এবং প্রোফাইল ফিল্টারিং (manager_bot.py এর সাথে মিল রেখে)
+    whitelist = load_json_safe('whitelist.json', {"players": [], "guilds": []})
+    profiles = load_json_safe('profile.json', {})
+    filtered_uids = []
+    
+    for u in running_uids:
+        u_str = str(u).strip()
+        if u_str in whitelist.get("players", []): 
+            continue
+        clan_id = str(profiles.get(u_str, {}).get("clanBasicInfo", {}).get("clanId", "N/A"))
+        if clan_id != "N/A" and clan_id in whitelist.get("guilds", []): 
+            continue
+        filtered_uids.append(u_str)
+
+    # 🚀 check.txt সিকোয়েন্সিয়াল ডিস্ট্রিবিউশন লজিক (প্রতি ট্র্যাকারে ৩টি করে UID)
+    tracker_count = len(bot_data)
+    check_distribution = {str(i): [] for i in range(1, tracker_count + 1)}
+    
+    if tracker_count > 0:
+        for idx, uid in enumerate(filtered_uids):
+            bot_idx = (idx // 3) + 1  # প্রতি বটের জন্য ৩টি করে সিকোয়েন্সিয়াল টার্গেট
+            if bot_idx <= tracker_count:
+                check_distribution[str(bot_idx)].append(uid)
+            else:
+                break
+    save_json_locked(FILES['check_txt'], check_distribution)
+
+    # 🚀 targets.txt সিকোয়েন্সিয়াল ডিস্ট্রিবিউশন লজিক (প্রতি অ্যাটাকারে ১টি করে UID)
+    attacker_count = len(vv_data)
+    targets_distribution = {str(i): [] for i in range(1, attacker_count + 1)}
+    
+    if attacker_count > 0:
+        for idx, uid in enumerate(filtered_uids):
+            bot_idx = idx + 1  # প্রতি অ্যাটাকারের জন্য ১টি করে সিকোয়েন্সিয়াল টার্গেট
+            if bot_idx <= attacker_count:
+                targets_distribution[str(bot_idx)].append(uid)
+            else:
+                break
+    save_json_locked(FILES['targets_txt'], targets_distribution)
 
 def check_expired_targets():
     if check_maintenance(): return
