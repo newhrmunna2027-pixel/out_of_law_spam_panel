@@ -30,12 +30,10 @@ except ImportError:
 # ==========================================
 DB_FILE = "database.db"
 
-# manager_bot.py চললে পরিবেশ চলক TRUE হবে, এককভাবে স্ক্রিপ্ট রান করলে এগুলো FALSE থাকবে
 USE_DB = os.environ.get("USE_DB", "FALSE") == "TRUE"
 MONGO_SYNC_ENABLED = os.environ.get("MONGO_SYNC_ENABLED", "FALSE") == "TRUE"
 RUN_STARTUP_SYNC = os.environ.get("RUN_STARTUP_SYNC", "FALSE") == "TRUE"
 
-# স্পেশাল রুল: এই ফাইলগুলো সর্বদা ফিজিক্যাল ফাইল হিসেবে কাজ করবে
 ALWAYS_PHYSICAL_FILES = [
     'bots_live_status.json', 
     'check_bot_status.json', 
@@ -51,7 +49,6 @@ mongo_client = None
 mongo_db = None
 MONGO_CONNECTED = False
 
-# ডাটাবেজ মোড এবং মঙ্গোডিবি সিঙ্ক সক্ষম হলে কানেকশন setup করা
 if MONGO_AVAILABLE and MONGO_SYNC_ENABLED:
     MONGO_URI = os.environ.get("MONGO_URI")
     MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME")
@@ -71,7 +68,7 @@ if MONGO_AVAILABLE and MONGO_SYNC_ENABLED:
         try:
             mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=3000)
             mongo_db = mongo_client[MONGO_DB_NAME]
-            mongo_client.server_info()  # কানেকশন টেস্ট
+            mongo_client.server_info()
             MONGO_CONNECTED = True
             print(f"[✓] MongoDB Sync Connection Established. Database: {MONGO_DB_NAME}")
         except Exception as e:
@@ -82,7 +79,7 @@ if MONGO_AVAILABLE and MONGO_SYNC_ENABLED:
 # 🚀 HIGH-PERFORMANCE IN-MEMORY CACHE
 # ==========================================
 _local_cache = {}
-_cache_ttl = 2.0  # ২ সেকেন্ড র‍্যাম ক্যাশ
+_cache_ttl = 2.0
 
 def clear_file_cache(filepath):
     normalized_path = filepath.replace('\\', '/').strip()
@@ -95,7 +92,7 @@ def clear_file_cache(filepath):
 # ==========================================
 def get_db_connection():
     conn = sqlite3.connect(DB_FILE, timeout=15.0)
-    conn.execute("PRAGMA journal_mode=WAL;")  # কনকারেন্ট ট্রানজ্যাকশন সাপোর্ট
+    conn.execute("PRAGMA journal_mode=WAL;")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -150,14 +147,12 @@ def load_data(filepath, default, force_mongo=False, bypass_mongo=None):
     normalized_path = filepath.replace('\\', '/').strip()
     filename = os.path.basename(normalized_path)
     
-    # ১. র‍্যাম ক্যাশ চেক
     cache_key = (normalized_path, force_mongo)
     if cache_key in _local_cache:
         val, expiry = _local_cache[cache_key]
         if time.time() < expiry:
             return _deduplicate_targets(val) if filename == 'active.json' else val
             
-    # স্পেশাল রুল বা Standalone Mode এর জন্য সরাসরি ফাইল থেকে রিড করা হবে
     if not USE_DB or filename in ALWAYS_PHYSICAL_FILES:
         if not os.path.exists(normalized_path):
             os.makedirs(os.path.dirname(normalized_path) if os.path.dirname(normalized_path) else '.', exist_ok=True)
@@ -176,60 +171,29 @@ def load_data(filepath, default, force_mongo=False, bypass_mongo=None):
     # ২. মঙ্গোডিবি থেকে শুধুমাত্র প্রজেক্ট রান করার প্রথমবারে (force_mongo=True) লোড করা হবে
     if MONGO_CONNECTED and force_mongo:
         try:
-            res_data = None
-            found_in_mongo = False
-            
             if filename == 'members.json':
-                rows = list(mongo_db['members'].find({}, {"_id": 0}))
-                res_data = rows
-                found_in_mongo = True
-            elif filename == 'active.json':
-                rows = list(mongo_db['targets'].find({}, {"_id": 0}))
-                res_data = _deduplicate_targets(rows)
-                found_in_mongo = True
-            elif filename == 'vv.json':
-                rows = list(mongo_db['vv'].find({}, {"_id": 0}))
-                res_data = {r['uid']: r['password'] for r in rows}
-                found_in_mongo = True
-            elif filename == 'profile.json':
-                rows = list(mongo_db['profiles'].find({}, {"_id": 0}))
-                res_data = {r['uid']: r['val'] for r in rows}
-                found_in_mongo = True
-            elif filename == 'limit.json':
-                row = mongo_db['limit'].find_one({}, {"_id": 0})
-                res_data = row if row is not None else default
-                found_in_mongo = True
-            elif filename in ['api.json', 'bot.json', 'stock.json', 'ex.json']:
-                col_name = filename.split('.')[0]
-                rows = list(mongo_db[col_name].find({}, {"_id": 0}))
-                res_data = rows
-                found_in_mongo = True
-            elif filename == 'whitelist.json':
-                row = mongo_db['whitelist'].find_one({}, {"_id": 0})
-                res_data = row if row is not None else default
-                found_in_mongo = True
-            elif filename == 'data.json':
-                row = mongo_db['data'].find_one({}, {"_id": 0})
-                res_data = row if row is not None else default
-                found_in_mongo = True
-            elif filename in ['target_logs.json', 'bad_accounts.json', 'history.json']:
-                col_name = filename.split('.')[0]
-                rows = list(mongo_db[col_name].find({}, {"_id": 0}))
-                res_data = rows
-                found_in_mongo = True
-            elif normalized_path.startswith('users/'):
-                doc_id = filename.split('.')[0]
-                row = mongo_db['user_configs'].find_one({"_id": doc_id}, {"_id": 0})
-                res_data = row.get("data", default) if row is not None else default
-                found_in_mongo = True
-            elif filename.endswith('.json') or filename.endswith('.txt'):
-                row = mongo_db['configs'].find_one({"_id": filename}, {"_id": 0})
-                res_data = row.get("val", default) if row is not None else default
-                found_in_mongo = True
-                
-            if found_in_mongo:
+                rows = list(mongo_db['members'].find({}))
+                res_data = []
+                for r in rows:
+                    res_data.append({
+                        "username": r.get("username"),
+                        "password": r.get("password"),
+                        "name": r.get("name"),
+                        "pic": r.get("pic"),
+                        "role": r.get("role"),
+                        "limit": r.get("limit") if r.get("limit") is not None else (r.get("limit_val") if r.get("limit_val") is not None else 0),
+                        "active_limit": r.get("active_limit") if r.get("active_limit") is not None else 0
+                    })
                 _local_cache[cache_key] = (res_data, time.time() + _cache_ttl)
                 return res_data
+            else:
+                row = mongo_db['configs'].find_one({"_id": filename}, {"_id": 0})
+                if row is not None:
+                    res_data = row.get("val", default)
+                    _local_cache[cache_key] = (res_data, time.time() + _cache_ttl)
+                    return res_data
+                else:
+                    return default
         except Exception as e:
             print(f"[Mongo Direct Read Error] {filename}: {e}")
 
@@ -275,7 +239,6 @@ def save_data(filepath, data, sync_mongo=None):
     normalized_path = filepath.replace('\\', '/').strip()
     filename = os.path.basename(normalized_path)
     
-    # ক্যাশ ইনভ্যালিডেশন
     clear_file_cache(filepath)
     
     if filename == 'active.json': 
@@ -335,34 +298,35 @@ def save_data(filepath, data, sync_mongo=None):
     if MONGO_CONNECTED and sync_mongo is not False:
         try:
             if filename == 'members.json':
-                mongo_db['members'].delete_many({})
-                if data: mongo_db['members'].insert_many([dict(x) for x in data])
-            elif filename == 'active.json':
-                mongo_db['targets'].delete_many({})
-                if data: mongo_db['targets'].insert_many([dict(x) for x in data])
-            elif filename == 'vv.json':
-                mongo_db['vv'].delete_many({})
-                if data: mongo_db['vv'].insert_many([{"uid": k, "password": v} for k, v in data.items()])
-            elif filename == 'profile.json':
-                mongo_db['profiles'].delete_many({})
-                if data: mongo_db['profiles'].insert_many([{"uid": k, "val": v} for k, v in data.items()])
-            elif filename in ['limit.json', 'whitelist.json', 'data.json']:
-                col = filename.split('.')[0]
-                mongo_db[col].delete_many({})
-                if data: mongo_db[col].insert_one(dict(data))
-            elif filename in ['api.json', 'bot.json', 'stock.json', 'ex.json']:
-                col_name = filename.split('.')[0]
-                mongo_db[col_name].delete_many({})
-                if data: mongo_db[col_name].insert_many([dict(x) for x in data])
-            elif filename in ['target_logs.json', 'bad_accounts.json', 'history.json']:
-                col_name = filename.split('.')[0]
-                mongo_db[col_name].delete_many({})
-                if data: mongo_db[col_name].insert_many([dict(x) for x in data])
-            elif normalized_path.startswith('users/'):
-                doc_id = filename.split('.')[0]
-                mongo_db['user_configs'].replace_one({"_id": doc_id}, {"_id": doc_id, "data": data}, upsert=True)
-            elif filename.endswith('.json') or filename.endswith('.txt'):
-                mongo_db['configs'].replace_one({"_id": filename}, {"_id": filename, "val": data}, upsert=True)
+                # ১. ড্যাশবোর্ড থেকে ডিলিট হওয়া মেম্বারদের MongoDB থেকে সাথে সাথে লাইভ ডিলিট করা
+                current_usernames = [u.get("username") for u in data if u.get("username")]
+                mongo_db['members'].delete_many({"_id": {"$nin": current_usernames}})
+                
+                # ২. মেম্বার অ্যাড বা এডিট করার লাইভ সিঙ্ক (Upsert with unique ID)
+                for u in data:
+                    username = u.get("username")
+                    if username:
+                        mongo_db['members'].replace_one(
+                            {"_id": username}, 
+                            {
+                                "_id": username,
+                                "username": username,
+                                "password": u.get("password"),
+                                "name": u.get("name"),
+                                "pic": u.get("pic"),
+                                "role": u.get("role"),
+                                "limit": u.get("limit") if u.get("limit") is not None else (u.get("limit_val") if u.get("limit_val") is not None else 0),
+                                "active_limit": u.get("active_limit") if u.get("active_limit") is not None else 0
+                            }, 
+                            upsert=True
+                        )
+            else:
+                # অন্য সব কনফিগ ফাইলকে 'configs' কালেকশনে সিঙ্গেল ডকুমেন্ট হিসেবে সেভ করা
+                mongo_db['configs'].replace_one(
+                    {"_id": filename}, 
+                    {"_id": filename, "val": data}, 
+                    upsert=True
+                )
         except Exception as e:
             print(f"[MongoDB Write Error] {filename}: {e}")
             
@@ -378,17 +342,14 @@ def init_mongo():
     print("[SYSTEM] Performing bidirectional startup data sync from MongoDB...")
     
     def sync_startup(filename, default_val):
-        # স্টার্টআপে ক্লাউড থেকে ফোর্স রিড করা হচ্ছে
         mongo_data = load_data(filename, default_val, force_mongo=True)
         local_data = load_data(filename, default_val, force_mongo=False)
 
-        # ক্লাউডে ডাটা থাকলে ক্লাউডের ডাটা লোকালে রাইট হবে, নতুবা লোকাল ডাটা ক্লাউডে আপলোড হবে
         if mongo_data and mongo_data != default_val:
             save_data(filename, mongo_data, sync_mongo=False)
         elif local_data and local_data != default_val:
             save_data(filename, local_data, sync_mongo=True)
 
-    # অ্যাডমিন প্যানেল এবং মেম্বার লিস্ট সিঙ্ক করা
     members_mongo = load_data('members.json', [], force_mongo=True)
     members_local = load_data('members.json', [], force_mongo=False)
     if members_mongo: 
@@ -398,7 +359,6 @@ def init_mongo():
     else:
         save_data('members.json', [{"username": "creator", "password": "123", "name": "System Creator", "pic": "902000003", "role": "creator", "limit": 999999, "active_limit": 999999}], sync_mongo=True)
 
-    # অন্য সব কনফিগারেশন ফাইল ক্লাউডের সাথে সুসংগত করা
     sync_startup('active.json', [])
     sync_startup('api.json', [])
     sync_startup('bot.json', [])
@@ -413,7 +373,6 @@ def init_mongo():
     sync_startup('history.json', [])
     sync_startup('uid.json', {})
 
-    # প্রতি ইউজারের আলাদা সেটিংস ফাইল সিঙ্ক
     members_data = load_data('members.json', [])
     for m in members_data:
         uname = m.get('username')
@@ -431,7 +390,6 @@ def init_mongo():
 
     print("[SYSTEM] Startup sync finished successfully.")
 
-# ডাটাবেজ টেবিল স্ট্রাকচার লোকাললি তৈরি করা (অত্যন্ত ফাস্ট)
 if USE_DB: 
     init_db()
 
