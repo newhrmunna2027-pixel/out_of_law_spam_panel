@@ -30,6 +30,7 @@ except ImportError:
 # ==========================================
 DB_FILE = "database.db"
 
+# manager_bot.py চললে পরিবেশ চলক TRUE হবে, এককভাবে স্ক্রিপ্ট রান করলে এগুলো FALSE থাকবে
 USE_DB = os.environ.get("USE_DB", "FALSE") == "TRUE"
 MONGO_SYNC_ENABLED = os.environ.get("MONGO_SYNC_ENABLED", "FALSE") == "TRUE"
 RUN_STARTUP_SYNC = os.environ.get("RUN_STARTUP_SYNC", "FALSE") == "TRUE"
@@ -142,7 +143,7 @@ def parse_expire_time(expire_at):
     except (ValueError, TypeError): 
         return 'permanent'
 
-# মঙ্গোডিবির প্রতিটি ফাইলের ডেডিকেটেড কালেকশন এবং আইডি ম্যাপিং
+# মঙ্গোডিবির প্রতিটি ফাইলের নিজস্ব ডেডিকেটেড কালেকশন এবং আইডি ম্যাপিং
 def get_mongo_mapping(filename):
     if filename == 'active.json':
         return 'targets', 'all_targets', True
@@ -233,7 +234,7 @@ def load_data(filepath, default, force_mongo=False, bypass_mongo=None):
                         _local_cache[cache_key] = (res_data, time.time() + _cache_ttl)
                         return res_data
                     else:
-                        # Fallback:Configs কালেকশনে ডাটা থেকে থাকলে তা নতুন ডেডিকেটেড কালেকশনে মাইগ্রেট করে রিকভার করবে
+                        # Fallback: Configs কালেকশনে ডাটা থেকে থাকলে তা নতুন ডেডিকেটেড কালেকশনে মাইগ্রেট করে রিকভার করবে
                         old_row = mongo_db['configs'].find_one({"_id": filename})
                         if old_row is not None:
                             res_data = old_row.get("val", default)
