@@ -34,7 +34,7 @@ USE_DB = os.environ.get("USE_DB", "FALSE") == "TRUE"
 MONGO_SYNC_ENABLED = os.environ.get("MONGO_SYNC_ENABLED", "FALSE") == "TRUE"
 RUN_STARTUP_SYNC = os.environ.get("RUN_STARTUP_SYNC", "FALSE") == "TRUE"
 
-# 🚀 এই ফাইলগুলো শুধুমাত্র লোকাল ডিস্কে থাকবে, মঙ্গোডিবিতে কখনো আপলোড বা সিঙ্ক হবে না
+# স্পেশাল রুল: এই ফাইলগুলো সর্বদা লোকাল ডিস্কে থাকবে, মঙ্গোডিবিতে সিঙ্ক হবে না
 ALWAYS_PHYSICAL_FILES = [
     'bots_live_status.json', 
     'check_bot_status.json', 
@@ -142,6 +142,34 @@ def parse_expire_time(expire_at):
     except (ValueError, TypeError): 
         return 'permanent'
 
+# মঙ্গোডিবির প্রতিটি ফাইলের ডেডিকেটেড কালেকশন এবং আইডি ম্যাপিং
+def get_mongo_mapping(filename):
+    if filename == 'active.json':
+        return 'targets', 'all_targets', True
+    elif filename == 'vv.json':
+        return 'vv', 'all_vv', True
+    elif filename == 'bot.json':
+        return 'bot', 'all_bot', True
+    elif filename == 'api.json':
+        return 'api', 'all_api', True
+    elif filename in ['stock.json', 'account/stock.json']:
+        return 'stock', 'all_stock', True
+    elif filename == 'ex.json':
+        return 'ex', 'all_ex', True
+    elif filename == 'profile.json':
+        return 'profiles', 'all_profiles', True
+    elif filename == 'limit.json':
+        return 'limit', 'all_limit', True
+    elif filename == 'whitelist.json':
+        return 'whitelist', 'all_whitelist', True
+    elif filename == 'data.json':
+        return 'data', 'all_data', True
+    elif filename == 'vv_timers.json':
+        return 'vv_timers', 'all_timers', True
+    elif filename == 'history.json':
+        return 'history', 'all_history', True
+    return None, None, False
+
 # ==========================================
 # UNIVERSAL DATA LOADER (LOCAL-FIRST DESIGN)
 # ==========================================
@@ -178,77 +206,41 @@ def load_data(filepath, default, force_mongo=False, bypass_mongo=None):
                 res_data = []
                 for r in rows:
                     res_data.append({
-                        "username": r.get("username"),
-                        "password": r.get("password"),
-                        "name": r.get("name"),
-                        "pic": r.get("pic"),
-                        "role": r.get("role"),
+                        "username": r.get("username", r.get("_id")),
+                        "password": r.get("password", ""),
+                        "name": r.get("name", ""),
+                        "pic": r.get("pic", ""),
+                        "role": r.get("role", ""),
                         "limit": r.get("limit") if r.get("limit") is not None else (r.get("limit_val") if r.get("limit_val") is not None else 0),
                         "active_limit": r.get("active_limit") if r.get("active_limit") is not None else 0
                     })
                 _local_cache[cache_key] = (res_data, time.time() + _cache_ttl)
                 return res_data
+
+            elif normalized_path.startswith('users/'):
+                doc_id = filename.split('.')[0]
+                row = mongo_db['user_configs'].find_one({"_id": doc_id})
+                res_data = row.get("data", default) if row is not None else default
+                _local_cache[cache_key] = (res_data, time.time() + _cache_ttl)
+                return res_data
+
             else:
-                row = mongo_db['configs'].find_one({"_id": filename}, {"_id": 0})
-                if row is not None:
-                    res_data = row.get("val", default)
-                    _local_cache[cache_key] = (res_data, time.time() + _cache_ttl)
-                    return res_data
-                else:
-                    # AUTO-MIGRATION FALLBACK (পুরানো সিস্টেমে ডাটা থাকলে রিকভার করবে)
-                    legacy_loaded = False
-                    res_data = default
-                    
-                    if filename == 'active.json':
-                        legacy_rows = list(mongo_db['targets'].find({}, {"_id": 0}))
-                        if legacy_rows:
-                            res_data = _deduplicate_targets(legacy_rows)
-                            legacy_loaded = True
-                            
-                    elif filename == 'vv.json':
-                        legacy_rows = list(mongo_db['vv'].find({}, {"_id": 0}))
-                        if legacy_rows:
-                            res_data = {}
-                            for r in legacy_rows:
-                                if 'uid' in r:
-                                    res_data[str(r['uid']).strip()] = r.get('password', '')
-                            legacy_loaded = True
-                            
-                    elif filename == 'bot.json':
-                        legacy_rows = list(mongo_db['bot'].find({}, {"_id": 0}))
-                        if legacy_rows:
-                            res_data = []
-                            for r in legacy_rows:
-                                uid = str(r.get('uid', '')).strip()
-                                if uid:
-                                    res_data.append({"uid": uid, "password": r.get('password', '')})
-                            legacy_loaded = True
-                            
-                    elif filename == 'profile.json':
-                        legacy_rows = list(mongo_db['profiles'].find({}, {"_id": 0}))
-                        if legacy_rows:
-                            res_data = {}
-                            for r in legacy_rows:
-                                if 'uid' in r and 'val' in r:
-                                    res_data[str(r['uid'])] = r['val']
-                            legacy_loaded = True
-                            
-                    elif filename in ['api.json', 'stock.json', 'ex.json', 'target_logs.json', 'bad_accounts.json', 'history.json', 'vv_timers.json']:
-                        col_name = filename.split('.')[0]
-                        legacy_rows = list(mongo_db[col_name].find({}, {"_id": 0}))
-                        if legacy_rows:
-                            res_data = legacy_rows
-                            legacy_loaded = True
-                    
-                    if legacy_loaded:
-                        mongo_db['configs'].replace_one(
-                            {"_id": filename}, 
-                            {"_id": filename, "val": res_data}, 
-                            upsert=True
-                        )
-                    
-                    _local_cache[cache_key] = (res_data, time.time() + _cache_ttl)
-                    return res_data
+                col_name, doc_id, is_single_doc = get_mongo_mapping(filename)
+                if col_name and is_single_doc:
+                    row = mongo_db[col_name].find_one({"_id": doc_id})
+                    if row is not None:
+                        res_data = row.get("val", default)
+                        _local_cache[cache_key] = (res_data, time.time() + _cache_ttl)
+                        return res_data
+                    else:
+                        # Fallback:Configs কালেকশনে ডাটা থেকে থাকলে তা নতুন ডেডিকেটেড কালেকশনে মাইগ্রেট করে রিকভার করবে
+                        old_row = mongo_db['configs'].find_one({"_id": filename})
+                        if old_row is not None:
+                            res_data = old_row.get("val", default)
+                            mongo_db[col_name].replace_one({"_id": doc_id}, {"_id": doc_id, "val": res_data}, upsert=True)
+                            _local_cache[cache_key] = (res_data, time.time() + _cache_ttl)
+                            return res_data
+                return default
         except Exception as e:
             print(f"[Mongo Direct Read Error] {filename}: {e}")
 
@@ -373,13 +365,13 @@ def save_data(filepath, data, sync_mongo=None):
                             }, 
                             upsert=True
                         )
+            elif normalized_path.startswith('users/'):
+                doc_id = filename.split('.')[0]
+                mongo_db['user_configs'].replace_one({"_id": doc_id}, {"_id": doc_id, "data": data}, upsert=True)
             else:
-                # অন্য সব কনফিগ ফাইলকে 'configs' কালেকশনে সিঙ্গেল ডকুমেন্ট হিসেবে সেভ করা
-                mongo_db['configs'].replace_one(
-                    {"_id": filename}, 
-                    {"_id": filename, "val": data}, 
-                    upsert=True
-                )
+                col_name, doc_id, is_single_doc = get_mongo_mapping(filename)
+                if col_name and is_single_doc:
+                    mongo_db[col_name].replace_one({"_id": doc_id}, {"_id": doc_id, "val": data}, upsert=True)
         except Exception as e:
             print(f"[MongoDB Write Error] {filename}: {e}")
             
@@ -410,7 +402,7 @@ def init_mongo():
     elif members_local: 
         save_data('members.json', members_local, sync_mongo=True)
     else:
-        save_data('members.json', [{"username": "creator", "password": "123", "name": "System Creator", "pic": "902000003", "role": "creator", "limit": 999999, "active_limit": 999999}], sync_mongo=True)
+        save_data('members.json', [{"username": "creator", "password": "123", "name": "System Creator", "pic": "902000003", "role": "creator", "limit": 1000, "active_limit": 1000}], sync_mongo=True)
 
     sync_startup('active.json', [])
     sync_startup('api.json', [])
@@ -421,10 +413,8 @@ def init_mongo():
     sync_startup('ex.json', [])
     sync_startup('whitelist.json', {"players": [], "guilds": []})
     sync_startup('data.json', {})
-    sync_startup('target_logs.json', [])
-    sync_startup('bad_accounts.json', [])
     sync_startup('history.json', [])
-    sync_startup('vv_timers.json', {})  # 🚀 টাইমার ফাইলটি মঙ্গোডিবির স্টার্টআপ সিঙ্কে যুক্ত করা হলো
+    sync_startup('vv_timers.json', {})
 
     members_data = load_data('members.json', [])
     for m in members_data:
@@ -439,7 +429,7 @@ def init_mongo():
     elif limits_local: 
         save_data('limit.json', limits_local, sync_mongo=True)
     else:
-        save_data('limit.json', {"global_limit": 40, "api_limit": 20, "default_line_3": "TIKTOK [FF00FF]→OUT OF LAW", "allow_user_add_bot": True}, sync_mongo=True)
+        save_data('limit.json', {"global_limit": 1000, "api_limit": 25, "default_line_3": "TIKTOK [FF00FF]→OUT OF LAW", "allow_user_add_bot": True}, sync_mongo=True)
 
     print("[SYSTEM] Startup sync finished successfully.")
 
