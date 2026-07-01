@@ -59,7 +59,7 @@ def init_files():
         save_json_locked(FILES['members'], members)
 
 def compile_master_bots():
-    # 🚀 FIX: Reads user configuration databases from members list directly
+    # Reads user configuration databases from members list directly
     master_bot = []
     master_vv = {}
     members = load_json_safe(FILES['members'], [])
@@ -100,11 +100,11 @@ def distribute_targets():
                 running_uids.append(t['uid']); t['status'] = 'Running'
             else: t['status'] = 'Paused (BY OWNER)'
             
-    save_json_locked(FILES['active'], active_data)
-    bot_count = max(len(bot_data) if isinstance(bot_data, list) else 1, 1)
-    distribution = {str(i): [] for i in range(1, bot_count + 1)}
-    for index, uid in enumerate(running_uids): distribution[str((index % bot_count) + 1)].append(uid)
-    save_json_locked(FILES['check_txt'], distribution)
+        save_json_locked(FILES['active'], active_data)
+        bot_count = max(len(bot_data) if isinstance(bot_data, list) else 1, 1)
+        distribution = {str(i): [] for i in range(1, bot_count + 1)}
+        for index, uid in enumerate(running_uids): distribution[str((index % bot_count) + 1)].append(uid)
+        save_json_locked(FILES['check_txt'], distribution)
 
 def check_expired_targets():
     if check_maintenance(): return
@@ -132,10 +132,10 @@ def clean_orphan_user_bots(username):
     master_bot = load_json_safe(FILES['bot'], [])
     master_vv = load_json_safe(FILES['vv'], {})
     stock = load_json_safe(STOCK_FILE, [])
-    ex_bots = load_json_safe('ex.json', []) # 🚀 ex.json এর বটস লোড
+    ex_bots = load_json_safe('ex.json', [])
     
     valid_uids = set()
-    for b in master_bot + stock + ex_bots: # 🚀 valid list এ ex_bots এড করা হলো
+    for b in master_bot + stock + ex_bots:
         if isinstance(b, dict) and b.get('uid'): valid_uids.add(str(b.get('uid')).strip())
     valid_uids.update([str(u).strip() for u in master_vv])
             
@@ -148,3 +148,5 @@ def clean_orphan_user_bots(username):
         my_bots['bot'] = cleaned_bots; my_bots['vv'] = cleaned_vvs
         save_user_bots(username, my_bots)
         compile_master_bots(); distribute_targets()
+
+# END OF FILE: web/services.py
