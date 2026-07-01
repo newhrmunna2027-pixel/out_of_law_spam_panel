@@ -390,42 +390,56 @@ def auto_distribute_bots():
 
     creator_data = None
 
+    # 🚀 FIX: শুধুমাত্র "creator" এর অতিরিক্ত বটস স্কেল ডাউন করা হবে, যা মেম্বারদের বট ডিলিট হওয়া বন্ধ করবে
     if len(vv_bots) > needed_attackers:
-        print(f"[-] Scaling down attackers. Excess: {len(vv_bots) - needed_attackers} bots.")
         if not creator_data: creator_data = get_user_bots("creator")
         vvs = normalize_bot_list(creator_data, 'vv')
         ex_bots = load_json(EX_FILE, [])
         
-        while len(vv_bots) > needed_attackers:
-            pop_uid = list(vv_bots.keys())[-1]
-            pop_pwd = vv_bots.pop(pop_uid)
-            vvs = [v for v in vvs if str(v.get('uid')) != pop_uid]
-            
-            if not any(item.get('uid') == pop_uid for item in ex_bots if isinstance(item, dict)):
-                ex_bots.append({"uid": pop_uid, "password": pop_pwd})
-            changed = True
-            
-        creator_data['vv'] = vvs
-        save_json(EX_FILE, ex_bots)
+        creator_vv_uids = {v['uid'] for v in vvs}
+        excess = len(vv_bots) - needed_attackers
+        removed_count = 0
+        
+        for pop_uid in list(vv_bots.keys()):
+            if pop_uid in creator_vv_uids and removed_count < excess:
+                pop_pwd = vv_bots.pop(pop_uid)
+                vvs = [v for v in vvs if str(v.get('uid')) != pop_uid]
+                if not any(item.get('uid') == pop_uid for item in ex_bots if isinstance(item, dict)):
+                    ex_bots.append({"uid": pop_uid, "password": pop_pwd})
+                removed_count += 1
+                changed = True
+                
+        if changed:
+            print(f"[-] Scaling down attackers. Removed {removed_count} Creator bots.")
+            creator_data['vv'] = vvs
+            save_json(EX_FILE, ex_bots)
 
     if len(bot_bots) > needed_trackers:
-        print(f"[-] Scaling down trackers. Excess: {len(bot_bots) - needed_trackers} bots.")
         if not creator_data: creator_data = get_user_bots("creator")
         bots = normalize_bot_list(creator_data, 'bot')
         ex_bots = load_json(EX_FILE, [])
         
-        while len(bot_bots) > needed_trackers:
-            pop_bot = bot_bots.pop()
-            pop_uid = str(pop_bot.get('uid'))
-            pop_pwd = str(pop_bot.get('password'))
-            bots = [b for b in bots if str(b.get('uid')) != pop_uid]
-            
-            if not any(item.get('uid') == pop_uid for item in ex_bots if isinstance(item, dict)):
-                ex_bots.append({"uid": pop_uid, "password": pop_pwd})
-            changed = True
-            
-        creator_data['bot'] = bots
-        save_json(EX_FILE, ex_bots)
+        creator_bot_uids = {b['uid'] for b in bots}
+        excess = len(bot_bots) - needed_trackers
+        removed_count = 0
+        
+        new_bot_bots = []
+        for b_entry in reversed(bot_bots):
+            b_uid = str(b_entry.get('uid'))
+            if b_uid in creator_bot_uids and removed_count < excess:
+                bots = [b for b in bots if str(b.get('uid')) != b_uid]
+                if not any(item.get('uid') == b_uid for item in ex_bots if isinstance(item, dict)):
+                    ex_bots.append({"uid": b_uid, "password": str(b_entry.get('password'))})
+                removed_count += 1
+                changed = True
+            else:
+                new_bot_bots.append(b_entry)
+                
+        if changed:
+            print(f"[-] Scaling down trackers. Removed {removed_count} Creator bots.")
+            bot_bots = list(reversed(new_bot_bots))
+            creator_data['bot'] = bots
+            save_json(EX_FILE, ex_bots)
 
     # Scale Attackers Up
     while len(vv_bots) < needed_attackers and len(vv_bots) < max_vv_slots:
@@ -583,7 +597,6 @@ def start_process(script_name):
     my_env = os.environ.copy()
     my_env["USE_DB"] = "TRUE" 
     my_env["MONGO_SYNC_ENABLED"] = "TRUE" 
-    # সাব-প্রসেস রানটাইমে ক্লাউড ডবল-সিঙ্ক এড়িয়ে ডাটাবেজ লক হওয়া রোধ করতে "FALSE" সেট করা হলো
     my_env["RUN_STARTUP_SYNC"] = "FALSE" 
     return subprocess.Popen([sys.executable, script_name], env=my_env)
 
@@ -592,8 +605,6 @@ def stop_process(proc, script_name):
         print(f"[-] Stopping {script_name}...")
         proc.terminate()
         proc.wait()
-
-# manager_bot.py ফাইলের একদম শেষের দিকে main() ফাংশনটি খুঁজে নিচের কোডটি দিয়ে প্রতিস্থাপন করুন:
 
 def main():
     global p_app, p_main, p_info
@@ -610,7 +621,6 @@ def main():
 
     save_json(LIVE_FILE, {})
 
-    # 🚀 PRO-PATCH: রেন্ডার রিস্টার্টের সময় ফিজিক্যাল ম্যাপ ফাইলগুলো ক্লাউড ডাটা থেকে রি-বিল্ড করা
     print("[*] Rebuilding local configuration maps for Render Ephemeral disk...")
     try:
         compile_master_bots()
