@@ -52,14 +52,14 @@ def Live_Status_Writer():
         time.sleep(10)
 
 
-# packets/state.py ফাইলের একদম শেষে নিচের অংশটুকু যুক্ত করুন:
-
-CHECK_BOT_STATUS_DATA = {}
 CHECK_STATUS_FILE = "check_bot_status.json"
+# 🚀 স্টার্টআপের সময় ডিস্কে থাকা পুরানো ডাটা রিকভার করে নেওয়া হচ্ছে যেন প্রো-প্রোটেকশন ফিল্টারিং নির্ভুল কাজ করতে পারে
+CHECK_BOT_STATUS_DATA = data_coordinator.load_data(CHECK_STATUS_FILE, {})
 
-def Update_Check_Bot_Status(bot_id, status_msg, uid="Unknown", nickname="Unknown", key_val="Unknown"):
+def Update_Check_Bot_Status(login_uid, status_msg, uid="Unknown", nickname="Unknown", key_val="Unknown"):
     with STATUS_LOCK:
-        CHECK_BOT_STATUS_DATA[str(bot_id)] = {
+        # স্ট্যাটাস ডিকশনারি আইডির পরিবর্তে ইউনিক login_uid দিয়ে আপডেট করা হচ্ছে
+        CHECK_BOT_STATUS_DATA[str(login_uid)] = {
             "Id": key_val, "Name": nickname, "Status": status_msg, 
             "Timestamp": dt_mod.datetime.now().strftime("%H:%M:%S"), "Game uid": uid
         }
@@ -68,10 +68,11 @@ def Update_Check_Bot_Status(bot_id, status_msg, uid="Unknown", nickname="Unknown
         except Exception: 
             pass
 
-def Remove_Check_Bot_Status(bot_id):
+def Remove_Check_Bot_Status(login_uid):
     with STATUS_LOCK:
-        if str(bot_id) in CHECK_BOT_STATUS_DATA:
-            del CHECK_BOT_STATUS_DATA[str(bot_id)]
+        # বটের ইউনিক login_uid ধরে স্ট্যাটাস রিমুভ করা হচ্ছে
+        if str(login_uid) in CHECK_BOT_STATUS_DATA:
+            del CHECK_BOT_STATUS_DATA[str(login_uid)]
         try: 
             data_coordinator.save_data(CHECK_STATUS_FILE, CHECK_BOT_STATUS_DATA.copy())
         except Exception: 
