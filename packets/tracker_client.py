@@ -76,14 +76,11 @@ class StatusBot:
         self.sc_task = None
         self.device = DEVICE_PROFILES[(int(bot_id) - 1) % len(DEVICE_PROFILES)]
 
-    # 🚀 FIXED: Garena থেকে ডাইনামিকলি সঠিক গেটওয়ে নোড আইপি ও পোর্ট নিয়ে কানেক্ট হওয়া
-    # packets/tracker_client.py ফাইলের login_with_retry এবং connect_and_listen মেথড আপডেট করুন:
-
     async def login_with_retry(self):
         for attempt in range(1, 4):
             print(f"[*] Info Tracker Bot (UID: {self.login_uid}) - Login Attempt {attempt}/3...")
-            # 🚀 NEW: ড্যাশবোর্ডে লগইন রিকোয়েস্ট স্ট্যাটাস সিঙ্ক
-            state.Update_Check_Bot_Status(self.bot_id, "⏳ Logging In...", self.login_uid, "Tracker Bot", self.login_uid)
+            # 🚀 NEW: ইউনিক login_uid ধরে ড্যাশবোর্ডে লগইন রিকোয়েস্ট স্ট্যাটাস সিঙ্ক
+            state.Update_Check_Bot_Status(self.login_uid, "⏳ Logging In...", self.login_uid, "Tracker Bot", self.login_uid)
             
             login_data, msg = await Execute_MajorLogin(self.login_uid, self.password, self.device)
             
@@ -109,14 +106,14 @@ class StatusBot:
                     self.auth_token_hex = f"0115{zeros}{enc_acc}{DecodE_HeX(ts)}00000{hex(len(token_enc)//2)[2:]}{token_enc}"
                     
                     # 🚀 NEW: লগইন সাকসেসফুল স্ট্যাটাস আপডেট
-                    state.Update_Check_Bot_Status(self.bot_id, "✅ Connected", self.account_uid, nickname, self.login_uid)
+                    state.Update_Check_Bot_Status(self.login_uid, "✅ Connected", self.account_uid, nickname, self.login_uid)
                     print(f"[+] Tracker Bot {self.login_uid} Logged In Successfully! (Gateway: {self.online_ip_port})")
                     return True
             await asyncio.sleep(3)
             
         print(f"[-] Tracker Bot {self.login_uid} Banned/Failed. Moving to bad_accounts.")
         state.save_bad_account(self.login_uid, "bot.json", "Tracker Login Failed (3x)")
-        state.Update_Check_Bot_Status(self.bot_id, "❌ Login Failed (Banned)", self.login_uid, "Unknown", self.login_uid)
+        state.Update_Check_Bot_Status(self.login_uid, "❌ Login Failed (Banned)", self.login_uid, "Unknown", self.login_uid)
         self.is_running = False
         return False
 
@@ -142,7 +139,7 @@ class StatusBot:
                     self.sc_task = asyncio.create_task(self.status_check_loop())
                 
                 # 🚀 NEW: সকেট সচল স্ট্যাটাস সিঙ্ক
-                state.Update_Check_Bot_Status(self.bot_id, "✅ Listening", self.account_uid, self.nickname, self.login_uid)
+                state.Update_Check_Bot_Status(self.login_uid, "✅ Listening", self.account_uid, self.nickname, self.login_uid)
                 
                 data = await self.reader.read(8192)
                 if not data: raise ConnectionError
@@ -174,11 +171,11 @@ class StatusBot:
                     print(f"[-] Tracker Bot {self.login_uid} Disconnected Permanently.")
                     state.save_bad_account(self.login_uid, "bot.json", "Tracker Disconnected (3x)")
                     # 🚀 NEW: ফেইলড বা ডিসকানেক্টেড বট ড্রপ
-                    state.Remove_Check_Bot_Status(self.bot_id)
+                    state.Remove_Check_Bot_Status(self.login_uid)
                     self.is_running = False
                     break
                 
-                state.Update_Check_Bot_Status(self.bot_id, f"⚠️ Reconnecting ({disconnect_count}/3)...", self.account_uid, self.nickname, self.login_uid)
+                state.Update_Check_Bot_Status(self.login_uid, f"⚠️ Reconnecting ({disconnect_count}/3)...", self.account_uid, self.nickname, self.login_uid)
                 await asyncio.sleep(3)
 
     async def heartbeat_loop(self):
