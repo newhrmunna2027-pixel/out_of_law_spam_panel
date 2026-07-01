@@ -132,8 +132,10 @@ def clean_orphan_user_bots(username):
     master_bot = load_json_safe(FILES['bot'], [])
     master_vv = load_json_safe(FILES['vv'], {})
     stock = load_json_safe(STOCK_FILE, [])
+    ex_bots = load_json_safe('ex.json', []) # 🚀 ex.json এর বটস লোড
+    
     valid_uids = set()
-    for b in master_bot + stock:
+    for b in master_bot + stock + ex_bots: # 🚀 valid list এ ex_bots এড করা হলো
         if isinstance(b, dict) and b.get('uid'): valid_uids.add(str(b.get('uid')).strip())
     valid_uids.update([str(u).strip() for u in master_vv])
             
