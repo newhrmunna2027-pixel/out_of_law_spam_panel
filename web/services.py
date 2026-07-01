@@ -190,7 +190,7 @@ def distribute_targets():
         filtered_uids.append(u_str)
         seen_running.add(u_str)
 
-    # 🚀 check.txt ফিজিক্যাল ডিস্ট্রিবিউশন (Strict Max 3 UIDs per Tracker bot list)
+    # check.txt ফিজিক্যাল ডিস্ট্রিবিউশন (Strict Max 3 UIDs per Tracker bot list)
     tracker_count = len(bot_data)
     check_distribution = {str(i): [] for i in range(1, tracker_count + 1)}
     
@@ -203,8 +203,7 @@ def distribute_targets():
                     
     save_json_locked(FILES['check_txt'], check_distribution)
 
-    # 🚀 targets.txt ফিজিক্যাল ডিস্ট্রিবিউশন (Strict Max 1 UID per Attacker bot list)
-    # info.json থেকে লাইভ ট্র্যাক করা অনলাইন UIDs সংগ্রহ করে স্প্যাম টার্গেট তৈরি করা হবে
+    # Collect UIDs from info.json to distribute to targets.txt
     info_data = load_json_safe(FILES['info'], {})
     info_uids = []
     if info_data:
@@ -212,7 +211,7 @@ def distribute_targets():
         info_uids = [u for u in info_uids if u in filtered_uids]
     else:
         info_uids = filtered_uids
-
+        
     seen_info = set()
     unique_info_uids = []
     for u in info_uids:
@@ -220,27 +219,41 @@ def distribute_targets():
             unique_info_uids.append(u)
             seen_info.add(u)
 
+    # targets.txt ফিজিক্যাল ডিস্ট্রিবিউশন (Odd-Even Duplicated Layout, Max 2 UIDs per list)
     attacker_count = len(vv_data)
     targets_distribution = {str(i): [] for i in range(1, attacker_count + 1)}
     
     if attacker_count > 0 and unique_info_uids:
         # প্রতিটি টার্গেটের ২টি করে অ্যাটাকার বট প্রয়োজন। ক্ষমতার চেয়ে বেশি UID হলে অতিরিক্ত UID বাদ (Ignore) যাবে
         max_targets_supported = attacker_count // 2
-        uids_to_assign = unique_info_uids[:max_targets_supported]  # 🚀 IGNORE EXTRA UIDs BEYOND CAPACITY
+        uids_to_assign = unique_info_uids[:max_targets_supported]  # IGNORE EXTRA UIDs BEYOND CAPACITY
         
         for idx, uid in enumerate(uids_to_assign):
-            bot_idx_1 = (2 * idx) + 1
-            bot_idx_2 = (2 * idx) + 2
+            bot_idx_1 = (2 * idx) + 1  # বিজোড় সংখ্যা (Odd list)
+            bot_idx_2 = (2 * idx) + 2  # জোড় সংখ্যা (Even list)
             
+            # ১. বিজোড় লিস্টের জন্য টার্গেট এবং তার লাইভ লিডার আইডি নির্ধারণ
+            temp_uids = [uid]
+            
+            target_info = info_data.get(uid, {}) if isinstance(info_data, dict) else {}
+            leader_uid = str(target_info.get("leader", "N/A")).strip()
+            
+            if leader_uid.isdigit() and leader_uid != "N/A" and leader_uid != uid and len(leader_uid) > 5:
+                temp_uids.append(leader_uid)
+                
+            # ২. বিজোড় লিস্টে অ্যাসাইন করা (সর্বোচ্চ ২টি UID)
             if bot_idx_1 <= attacker_count:
-                if len(targets_distribution[str(bot_idx_1)]) < 1:  # STRICT MAX 1 UID PER LIST
-                    targets_distribution[str(bot_idx_1)].append(uid)
+                for u in temp_uids:
+                    if len(targets_distribution[str(bot_idx_1)]) < 2:
+                        targets_distribution[str(bot_idx_1)].append(u)
+                        
+            # ৩. জোড় লিস্টে বিজোড় লিস্টের নিখুঁত কপি অ্যাসাইন করা (সর্বোচ্চ ২টি UID)
             if bot_idx_2 <= attacker_count:
-                if len(targets_distribution[str(bot_idx_2)]) < 1:  # STRICT MAX 1 UID PER LIST
-                    targets_distribution[str(bot_idx_2)].append(uid)
+                for u in temp_uids:
+                    if len(targets_distribution[str(bot_idx_2)]) < 2:
+                        targets_distribution[str(bot_idx_2)].append(u)
                             
     save_json_locked(FILES['targets_txt'], targets_distribution)
-
 def check_expired_targets():
     if check_maintenance(): return
     active_data = load_json_safe(FILES['active'], [])
