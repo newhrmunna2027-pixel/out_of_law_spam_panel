@@ -162,23 +162,34 @@ class FF_CLient:
             
             # ১. প্রথমে রুম ক্রিয়েট এবং সাথে সাথেই রুম ইনভাইট x3 ফায়ার
             await self.safe_socket_write(room_create_pkt)
-            for _ in range(5):
+            for _ in range(1):
                 await self.safe_socket_write(room_inv_pkt)
-            await asyncio.sleep(0.4)
+            await asyncio.sleep(0.0)
             
             # ২. ফেক প্রোফাইল জয়েন x3
-            for _ in range(5):
+            for _ in range(1):
                 await self.safe_socket_write(fake_join_pkt)
-            await asyncio.sleep(0.4)
+            await asyncio.sleep(0.0)
 
             # ৩. দ্বিতীয়বার রুম ইনভাইটের ঠিক পূর্বে পুনরায় রুম ক্রিয়েট এবং রুম ইনভাইট x3 ফায়ার
             await self.safe_socket_write(room_create_pkt)
-            for _ in range(5):
+            for _ in range(1):
                 await self.safe_socket_write(room_inv_pkt)
-            await asyncio.sleep(0.4)
+            await asyncio.sleep(0.0)
+
+            # 4. ফেক প্রোফাইল জয়েন x3
+            for _ in range(1):
+                await self.safe_socket_write(fake_join_pkt)
+            await asyncio.sleep(0.0)
+
+            # 5. দ্বিতীয়বার রুম ইনভাইটের ঠিক পূর্বে পুনরায় রুম ক্রিয়েট এবং রুম ইনভাইট x3 ফায়ার
+            await self.safe_socket_write(room_create_pkt)
+            for _ in range(1):
+                await self.safe_socket_write(room_inv_pkt)
+            await asyncio.sleep(0.0)
             
-            # ৪. টিম ইনভাইট x3
-            for _ in range(3):
+            # 6. টিম ইনভাইট x3
+            for _ in range(1):
                 await self.safe_socket_write(team_invite_pkt)
 
         except Exception: 
@@ -200,14 +211,14 @@ class FF_CLient:
 
                 now = time.time()
                 # 🚀 FIXED: Rotation barrier adjusted strictly to 1.6s
-                sleep_time = 1.5 - (now % 1.5)
+                sleep_time = 1.0 - (now % 1.0)
                 await asyncio.sleep(sleep_time)
                 
                 total_lists = len(state.ATTACK_TARGETS_DICT)
                 if total_lists == 0: continue
                 
                 # 🚀 FIXED: Rotation step index scaled cleanly to 1.6s
-                ROTATION_STEP = int(time.time() / 1.5)
+                ROTATION_STEP = int(time.time() / 1.0)
                 my_list_id = ((int(self.bot_id) + ROTATION_STEP - 1) % total_lists) + 1
                 my_targets = state.ATTACK_TARGETS_DICT.get(str(my_list_id), [])
                 my_targets = my_targets[:1]
