@@ -59,7 +59,7 @@ def init_files():
         save_json_locked(FILES['members'], members)
 
 def compile_master_bots():
-    # active.json থেকে রানিং টার্গেটের পরিমাণ মেপে প্রুনিং করা হবে (manager_bot.py এর সাথে সিঙ্কড)
+    # 🚀 active.json থেকে রানিং টার্গেটের পরিমাণ মেপে প্রুনিং করা হবে (manager_bot.py এর সাথে সিঙ্কড)
     master_bot = []
     master_vv = {}
     
@@ -86,6 +86,7 @@ def compile_master_bots():
     
     for username in usernames:
         data = get_user_bots(username)
+        member_record = next((m for m in members if m['username'] == username), None)
         
         user_active_count = user_target_counts.get(username, 0)
         
@@ -181,5 +182,48 @@ def distribute_targets():
             if bot_idx_2 <= attacker_count:
                 targets_distribution[str(bot_idx_2)].append(uid)
     save_json_locked(FILES['targets_txt'], targets_distribution)
+
+def check_expired_targets():
+    if check_maintenance(): return
+    active_data = load_json_safe(FILES['active'], [])
+    profiles = load_json_safe(FILES['profile'], {})
+    current_time = int(time.time() * 1000)
+    new_active = []; changed = False
+    for t in active_data:
+        if not isinstance(t, dict): continue
+        parsed_expire = data_coordinator.parse_expire_time(t.get('expireAt'))
+        is_expired = False if parsed_expire == 'permanent' else parsed_expire <= current_time
+        if not is_expired: new_active.append(t)
+        else:
+            changed = True
+            add_history("Expired", t.get('uid', 'N/A'), t.get('name', 'Unknown'))
+            add_target_log("EXPIRED", t.get('uid', 'N/A'), t.get('name', 'Unknown'), t.get('duration', 'N/A'), "System")
+            if t.get('uid') in profiles: del profiles[t.get('uid')]
+    if changed:
+        save_json_locked(FILES['active'], new_active)
+        save_json_locked(FILES['profile'], profiles)
+        distribute_targets()
+
+def clean_orphan_user_bots(username):
+    my_bots = get_user_bots(username)
+    master_bot = load_json_safe(FILES['bot'], [])
+    master_vv = load_json_safe(FILES['vv'], {})
+    stock = load_json_safe(STOCK_FILE, [])
+    ex_bots = load_json_safe('ex.json', [])
+    
+    valid_uids = set()
+    for b in master_bot + stock + ex_bots:
+        if isinstance(b, dict) and b.get('uid'): valid_uids.add(str(b.get('uid')).strip())
+    valid_uids.update([str(u).strip() for u in master_vv])
+            
+    original_bots = normalize_bot_list(my_bots, 'bot')
+    cleaned_bots = [b for b in original_bots if b.get('uid') in valid_uids]
+    original_vvs = normalize_bot_list(my_bots, 'vv')
+    cleaned_vvs = [v for v in original_vvs if v.get('uid') in valid_uids]
+    
+    if len(cleaned_bots) != len(original_bots) or len(cleaned_vvs) != len(original_vvs):
+        my_bots['bot'] = cleaned_bots; my_bots['vv'] = cleaned_vvs
+        save_user_bots(username, my_bots)
+        compile_master_bots(); distribute_targets()
 
 # END OF FILE: web/services.py
