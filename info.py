@@ -72,13 +72,14 @@ async def dynamic_bot_watcher():
             if curr_state != last_state:
                 current_uids = [str(b['uid']) for b in bot_array if 'uid' in b]
                 
-                # রিমুভ হয়ে যাওয়া বটগুলোকে থামানো
+                # রিমুভ হয়ে যাওয়া বটগুলোকে থামানো এবং check_bot_status.json থেকে ডাটা মুছে ফেলা
                 for active_uid in list(ACTIVE_INFO_BOTS.keys()):
                     if active_uid not in current_uids:
                         print(f"[-] Stopping Tracker Bot: {active_uid}")
                         bot_obj = ACTIVE_INFO_BOTS.pop(active_uid)
                         bot_obj.is_running = False
                         if bot_obj.writer: bot_obj.writer.close()
+                        state.Remove_Check_Bot_Status(bot_obj.bot_id)  # 🚀 ওল্ড স্ট্যাটাস ক্লিয়ার
 
                 # নতুন যুক্ত হওয়া বটগুলো চালু করা
                 for index, b in enumerate(bot_array):
@@ -99,6 +100,17 @@ async def dynamic_bot_watcher():
                                 
                         asyncio.create_task(boot_bot(new_bot))
                         await asyncio.sleep(0.5)
+                
+                # 🚀 ডাবল প্রো-প্রোটেকশন: কোনো কারণে ওল্ড গার্বেজ ডাটা থেকে গেলে তা রি-সিঙ্ক করে ডিলিট করা
+                active_bot_ids = {ACTIVE_INFO_BOTS[u].bot_id for u in ACTIVE_INFO_BOTS if u in ACTIVE_INFO_BOTS}
+                with state.STATUS_LOCK:
+                    for bid in list(state.CHECK_BOT_STATUS_DATA.keys()):
+                        if bid not in active_bot_ids:
+                            del state.CHECK_BOT_STATUS_DATA[bid]
+                    try:
+                        data_coordinator.save_data(state.CHECK_STATUS_FILE, state.CHECK_BOT_STATUS_DATA.copy())
+                    except Exception:
+                        pass
                         
                 last_state = curr_state
         except Exception as e: 
