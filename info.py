@@ -22,7 +22,7 @@ async def file_sync_manager():
         try:
             current_time = datetime.now()
             
-            # ১৫ সেকেন্ডের বেশি অফলাইনে থাকা টার্গেটের ডাটা ক্লিন করা
+            # ১৫ সেকেন্ডের বেশি অফলাইনে থাকা টার্геটের ডাটা ক্লিন করা
             for t_uid, info in list(state.global_info_data.items()):
                 try:
                     last_update_obj = datetime.strptime(info["last_update"], '%Y-%m-%d %H:%M:%S')
@@ -79,7 +79,7 @@ async def dynamic_bot_watcher():
                         bot_obj = ACTIVE_INFO_BOTS.pop(active_uid)
                         bot_obj.is_running = False
                         if bot_obj.writer: bot_obj.writer.close()
-                        state.Remove_Check_Bot_Status(bot_obj.bot_id)  # 🚀 ওল্ড স্ট্যাটাস ক্লিয়ার
+                        state.Remove_Check_Bot_Status(active_uid)  # 🚀 ইউনিক ইউজার আইডি অনুযায়ী লাইভ ডিলিট
 
                 # নতুন যুক্ত হওয়া বটগুলো চালু করা
                 for index, b in enumerate(bot_array):
@@ -101,12 +101,12 @@ async def dynamic_bot_watcher():
                         asyncio.create_task(boot_bot(new_bot))
                         await asyncio.sleep(0.5)
                 
-                # 🚀 ডাবল প্রো-প্রোটেকশন: কোনো কারণে ওল্ড গার্বেজ ডাটা থেকে গেলে তা রি-সিঙ্ক করে ডিলিট করা
-                active_bot_ids = {ACTIVE_INFO_BOTS[u].bot_id for u in ACTIVE_INFO_BOTS if u in ACTIVE_INFO_BOTS}
+                # 🚀 ডাবল প্রো-প্রোটেকশন: ইনডেক্স পরিবর্তনের পরেও কোনো কারণে পুরানো গার্বেজ ডাটা থাকলে তা ইনস্ট্যান্ট ক্লিয়ার করা
+                active_bot_uids = {u for u in ACTIVE_INFO_BOTS if u in ACTIVE_INFO_BOTS}
                 with state.STATUS_LOCK:
-                    for bid in list(state.CHECK_BOT_STATUS_DATA.keys()):
-                        if bid not in active_bot_ids:
-                            del state.CHECK_BOT_STATUS_DATA[bid]
+                    for buid in list(state.CHECK_BOT_STATUS_DATA.keys()):
+                        if buid not in active_bot_uids:
+                            del state.CHECK_BOT_STATUS_DATA[buid]
                     try:
                         data_coordinator.save_data(state.CHECK_STATUS_FILE, state.CHECK_BOT_STATUS_DATA.copy())
                     except Exception:
