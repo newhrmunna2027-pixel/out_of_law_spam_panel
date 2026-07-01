@@ -59,7 +59,7 @@ def init_files():
         save_json_locked(FILES['members'], members)
 
 def compile_master_bots():
-    # Reads user configuration databases from members list directly
+    # 🚀 FIX: ড্যাশবোর্ডের মাস্টার কম্পাইলেশন প্রুনিং লিমিট যুক্ত করা হলো (manager_bot.py এর সাথে ১০০% সিঙ্কড)
     master_bot = []
     master_vv = {}
     members = load_json_safe(FILES['members'], [])
@@ -68,8 +68,31 @@ def compile_master_bots():
     
     for username in usernames:
         data = get_user_bots(username)
-        master_bot.extend(normalize_bot_list(data, 'bot'))
-        for v in normalize_bot_list(data, 'vv'): master_vv[str(v['uid'])] = v['password']
+        member_record = next((m for m in members if m['username'] == username), None)
+        
+        limit_cfg = get_limit_config()
+        global_limit = int(limit_cfg.get('global_limit', 40))
+
+        if username == "creator" or (member_record and member_record.get('role') in ['owner', 'creator']):
+            user_max_active = global_limit
+        elif member_record:
+            user_max_active = int(member_record.get('active_limit', 0))
+        else:
+            user_max_active = 0
+            
+        allowed_vv_count = user_max_active * 2
+        allowed_bot_count = math.ceil(user_max_active / 3)
+
+        normalized_bots = normalize_bot_list(data, 'bot')
+        normalized_vvs = normalize_bot_list(data, 'vv')
+
+        # Limits অনুযায়ী প্রুনিং বা ফিল্টারিং সম্পন্ন করা
+        normalized_bots = normalized_bots[:allowed_bot_count]
+        normalized_vvs = normalized_vvs[:allowed_vv_count]
+
+        master_bot.extend(normalized_bots)
+        for v in normalized_vvs:
+            master_vv[str(v['uid'])] = v['password']
             
     save_json_locked(FILES['bot'], master_bot)
     save_json_locked(FILES['vv'], master_vv)
@@ -84,7 +107,7 @@ def get_user_usable_limit(username):
 
 def distribute_targets():
     bot_data = load_json_safe(FILES['bot'], [])
-    vv_data = load_json_safe(FILES['vv'], {})  # 🚀 Attacker বটস লোড করা হলো
+    vv_data = load_json_safe(FILES['vv'], {})  # Attacker বটস লোড করা হলো
     active_data = load_json_safe(FILES['active'], [])
     
     user_targets = {}
@@ -108,7 +131,7 @@ def distribute_targets():
                 
     save_json_locked(FILES['active'], active_data)
     
-    # 🚀 হোয়াইটলিস্ট এবং প্রোফাইল ফিল্টারিং (manager_bot.py এর সাথে মিল রেখে)
+    # হোয়াইটলিস্ট এবং প্রোফাইল ফিল্টারিং (manager_bot.py এর সাথে মিল রেখে)
     whitelist = load_json_safe('whitelist.json', {"players": [], "guilds": []})
     profiles = load_json_safe('profile.json', {})
     filtered_uids = []
@@ -122,7 +145,7 @@ def distribute_targets():
             continue
         filtered_uids.append(u_str)
 
-    # 🚀 check.txt সিকোয়েন্সিয়াল ডিস্ট্রিবিউশন লজিক (প্রতি ট্র্যাকারে ৩টি করে UID)
+    # check.txt সিকোয়েন্সিয়াল ডিস্ট্রিবিউশন লজিক (প্রতি ট্র্যাকারে ৩টি করে UID)
     tracker_count = len(bot_data)
     check_distribution = {str(i): [] for i in range(1, tracker_count + 1)}
     
@@ -135,7 +158,7 @@ def distribute_targets():
                 break
     save_json_locked(FILES['check_txt'], check_distribution)
 
-    # 🚀 targets.txt সিকোয়েন্সিয়াল ডিস্ট্রিবিউশন লজিক (প্রতি অ্যাটাকারে ১টি করে UID)
+    # targets.txt সিকোয়েন্সিয়াল ডিস্ট্রিবিউশন লজিক (প্রতি অ্যাটাকারে ১টি করে UID)
     attacker_count = len(vv_data)
     targets_distribution = {str(i): [] for i in range(1, attacker_count + 1)}
     
@@ -147,48 +170,5 @@ def distribute_targets():
             else:
                 break
     save_json_locked(FILES['targets_txt'], targets_distribution)
-
-def check_expired_targets():
-    if check_maintenance(): return
-    active_data = load_json_safe(FILES['active'], [])
-    profiles = load_json_safe(FILES['profile'], {})
-    current_time = int(time.time() * 1000)
-    new_active = []; changed = False
-    for t in active_data:
-        if not isinstance(t, dict): continue
-        parsed_expire = data_coordinator.parse_expire_time(t.get('expireAt'))
-        is_expired = False if parsed_expire == 'permanent' else parsed_expire <= current_time
-        if not is_expired: new_active.append(t)
-        else:
-            changed = True
-            add_history("Expired", t.get('uid', 'N/A'), t.get('name', 'Unknown'))
-            add_target_log("EXPIRED", t.get('uid', 'N/A'), t.get('name', 'Unknown'), t.get('duration', 'N/A'), "System")
-            if t.get('uid') in profiles: del profiles[t.get('uid')]
-    if changed:
-        save_json_locked(FILES['active'], new_active)
-        save_json_locked(FILES['profile'], profiles)
-        distribute_targets()
-
-def clean_orphan_user_bots(username):
-    my_bots = get_user_bots(username)
-    master_bot = load_json_safe(FILES['bot'], [])
-    master_vv = load_json_safe(FILES['vv'], {})
-    stock = load_json_safe(STOCK_FILE, [])
-    ex_bots = load_json_safe('ex.json', [])
-    
-    valid_uids = set()
-    for b in master_bot + stock + ex_bots:
-        if isinstance(b, dict) and b.get('uid'): valid_uids.add(str(b.get('uid')).strip())
-    valid_uids.update([str(u).strip() for u in master_vv])
-            
-    original_bots = normalize_bot_list(my_bots, 'bot')
-    cleaned_bots = [b for b in original_bots if b.get('uid') in valid_uids]
-    original_vvs = normalize_bot_list(my_bots, 'vv')
-    cleaned_vvs = [v for v in original_vvs if v.get('uid') in valid_uids]
-    
-    if len(cleaned_bots) != len(original_bots) or len(cleaned_vvs) != len(original_vvs):
-        my_bots['bot'] = cleaned_bots; my_bots['vv'] = cleaned_vvs
-        save_user_bots(username, my_bots)
-        compile_master_bots(); distribute_targets()
 
 # END OF FILE: web/services.py
