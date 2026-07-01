@@ -635,9 +635,20 @@ def main():
 
     save_json(LIVE_FILE, {})
 
+    # 🚀 PORT BINDING FIX: Render-এর পোর্ট স্ক্যানার বাইপাস করতে app.py-কে সবার আগে ফায়ার করা হলো
+    p_app = start_process('app.py')
+    time.sleep(2)  # ২ সেকেন্ড ওয়েট করা হবে পোর্ট বাইন্ড হওয়ার জন্য
+
+    # 🚀 ক্লাউড MongoDB সিঙ্ক অপারেশন (রানটাইম ব্লকিং এড়াতে মডিউল ইমপোর্ট লেভেল থেকে এখানে সরানো হলো)
+    print("[*] Initializing MongoDB Startup Sync...")
+    try:
+        data_coordinator.init_mongo()
+        print("[✓] MongoDB Startup Sync completed.")
+    except Exception as e:
+        print(f"[!] MongoDB Startup Sync Warning: {e}")
+
     print("[*] Rebuilding and arranging local configuration maps for Render Ephemeral disk...")
     try:
-        # 🚀 মঙ্গোডিবি লোড সম্পন্ন হওয়ার পরপরই একটিভ টার্গেট অনুযায়ী সব বট ক্রমানুসারে সাজিয়ে নেওয়া হবে
         compile_master_bots()
         auto_distribute_bots()
         distribute_targets()
@@ -649,8 +660,6 @@ def main():
     watcher_thread.start()
     print("[✓] Dynamic System Daemon Watcher Active (1s Loop).")
 
-    p_app = start_process('app.py')
-    time.sleep(3)
     p_info = start_process('info.py')
     time.sleep(2)
     p_main = start_process('main.py')
