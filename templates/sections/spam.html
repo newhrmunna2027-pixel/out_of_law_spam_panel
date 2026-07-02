@@ -5,7 +5,7 @@
             <h2 class="text-xl font-black text-white uppercase tracking-widest flex items-center gap-2">
                 <i class="fas fa-bolt text-indigo-400 animate-pulse"></i> Active Attacker Pairs (targets.txt)
             </h2>
-            <span class="text-[9px] font-bold text-gray-500 uppercase tracking-widest mt-1">Duplicated Odd-Even Bot Slots with Live Squad Leader Sync</span>
+            <span class="text-[9px] font-bold text-gray-500 uppercase tracking-widest mt-1">Sequential Round-Robin Bot Slots with Live Dynamic Role Detection</span>
         </div>
         
         <!-- Spam Search Input -->
@@ -72,8 +72,10 @@
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         ${filteredUids.map((t, idx) => {
-                            // ১ম UID সবসময় প্রাইমারি টার্গেট, ২য়টি সবসময় লাইভ স্কোয়াড লিডার
-                            let isPrimary = (idx === 0);
+                            // 🚀 ডাইনামিক রোল ফিল্টারিং: সোর্স ফিল্ড পড়ে কার্ডের সঠিক ভূমিকা ও গ্লো নির্ধারণ করা হচ্ছে
+                            let sourceStr = String(t.source).toLowerCase();
+                            let isPrimary = sourceStr.includes('target') || sourceStr.includes('owner');
+                            
                             let roleLabel = isPrimary ? 'Primary Target' : 'Squad Leader';
                             let roleIcon = isPrimary ? 'fa-crosshairs text-rose-400 animate-pulse' : 'fa-crown text-yellow-400';
                             let borderGlow = isPrimary ? 'border-rose-500/20 shadow-[0_0_15px_rgba(239,68,68,0.03)]' : 'border-yellow-500/20 shadow-[0_0_15px_rgba(234,179,8,0.03)]';
