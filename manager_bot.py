@@ -195,7 +195,7 @@ def get_user_usable_limit(username):
     
     return self_usable + owner_given_active_limit
 
-# STRICT MAPS DISTRIBUTION ENFORCED UNCONDITIONALLY (STRICT DE-DUPLICATION & ODD-EVEN COPY PIPELINE):
+# STRICT MAPS DISTRIBUTION ENFORCED UNCONDITIONALLY (STRICT DE-DUPLICATION & SEQUENTIAL SQUAD SPLIT PIPELINE):
 def distribute_targets():
     bot_data = load_json(BOT_FILE, []) 
     vv_data = load_json(VV_FILE, {})   
@@ -260,7 +260,7 @@ def distribute_targets():
 
     save_json(CHECK_FILE, check_distribution)
 
-    # targets.txt ফিজিক্যাল ডিস্ট্রিবিউশন (Odd-Even Duplicated Layout, Max 2 UIDs per list)
+    # targets.txt ফিজিক্যাল ডিস্ট্রিবিউশন (Odd-Even Duplicated Layout, Max 2 UIDs per list - Sequential)
     info_data = load_json(INFO_JSON, {})
     info_uids = []
     if info_data:
@@ -269,6 +269,7 @@ def distribute_targets():
     else:
         info_uids = filtered_uids
 
+    # টার্গেটের ডুপ্লিকেশন স্ক্রীনিং
     seen_info = set()
     unique_info_uids = []
     for u in info_uids:
@@ -277,37 +278,45 @@ def distribute_targets():
             seen_info.add(u)
 
     attacker_count = len(vv_data)
-    targets_distribution = {str(i): [] for i in range(1, attacker_count + 1)}
-    
-    if attacker_count > 0 and unique_info_uids:
-        # প্রতিটি টার্গেটের ২টি করে অ্যাটাকার বট প্রয়োজন। ক্ষমতার চেয়ে বেশি UID হলে অতিরিক্ত UID বাদ (Ignore) যাবে
-        max_targets_supported = attacker_count // 2
-        uids_to_assign = unique_info_uids[:max_targets_supported]  # IGNORE EXTRA UIDs BEYOND CAPACITY
-        
-        for idx, uid in enumerate(uids_to_assign):
-            bot_idx_1 = (2 * idx) + 1  # বিজোড় সংখ্যা (Odd list)
-            bot_idx_2 = (2 * idx) + 2  # জোড় সংখ্যা (Even list)
-            
-            # ১. বিজোড় লিস্টের জন্য টার্গেট এবং তার লাইভ লিডার আইডি নির্ধারণ
-            temp_uids = [uid]
-            
-            target_info = info_data.get(uid, {}) if isinstance(info_data, dict) else {}
+    num_pairs = attacker_count // 2  # জোড়ার সংখ্যা নির্ধারণ
+    pair_buckets = {i: [] for i in range(num_pairs)}
+
+    if num_pairs > 0 and unique_info_uids:
+        # ৩. প্রতিটি অনলাইনের প্রাইমারি টার্গেটদের UID এবং তাদের লাইভ লিডারদের UID নিয়ে একটি একক ধারাবাহিক তালিকা (all_uids) তৈরি করা
+        primary_uids = list(unique_info_uids)
+        leader_uids = []
+        for u in primary_uids:
+            target_info = info_data.get(u, {}) if isinstance(info_data, dict) else {}
             leader_uid = str(target_info.get("leader", "N/A")).strip()
-            
-            if leader_uid.isdigit() and leader_uid != "N/A" and leader_uid != uid and len(leader_uid) > 5:
-                temp_uids.append(leader_uid)
+            if leader_uid.isdigit() and leader_uid != "N/A" and leader_uid != u and len(leader_uid) > 5:
+                if leader_uid not in leader_uids:  # ডুপ্লিকেট লিডার আইডি এড়ানো
+                    leader_uids.append(leader_uid)
+        
+        all_uids = primary_uids + leader_uids
+
+        # ৪. ধারাবাহিক রাউন্ড-রবিন ডিস্ট্রিবিউশন লজিক (প্রতি জোড়ায় সমান বন্টন, প্রতি বাকেটে সর্বোচ্চ ২টি UID)
+        bucket_ptr = 0
+        for uid in all_uids:
+            for _ in range(num_pairs):
+                idx = bucket_ptr % num_pairs
+                bucket_ptr += 1
                 
-            # ২. বিজোড় লিস্টে অ্যাসাইন করা (সর্বোচ্চ ২টি UID)
-            if bot_idx_1 <= attacker_count:
-                for u in temp_uids:
-                    if len(targets_distribution[str(bot_idx_1)]) < 2:
-                        targets_distribution[str(bot_idx_1)].append(u)
-                        
-            # ৩. জোড় লিস্টে বিজোড় লিস্টের নিখুঁত কপি অ্যাসাইন করা (সর্বোচ্চ ২টি UID)
-            if bot_idx_2 <= attacker_count:
-                for u in temp_uids:
-                    if len(targets_distribution[str(bot_idx_2)]) < 2:
-                        targets_distribution[str(bot_idx_2)].append(u)
+                if uid not in pair_buckets[idx] and len(pair_buckets[idx]) < 2:
+                    pair_buckets[idx].append(uid)
+                    break
+
+    # ৫. বাকেটগুলো থেকে targets_distribution সাজানো (বিজোড় ও জোড় লিস্ট ম্যাচিং)
+    targets_distribution = {str(i): [] for i in range(1, attacker_count + 1)}
+    for pair_idx in range(num_pairs):
+        bot_idx_1 = (2 * pair_idx) + 1  # বিজোড় সংখ্যা
+        bot_idx_2 = (2 * pair_idx) + 2  # জোড় সংখ্যা
+        
+        pair_data = pair_buckets[pair_idx]
+        
+        if bot_idx_1 <= attacker_count:
+            targets_distribution[str(bot_idx_1)] = list(pair_data)
+        if bot_idx_2 <= attacker_count:
+            targets_distribution[str(bot_idx_2)] = list(pair_data)
 
     save_json(TARGETS_TXT, targets_distribution)
 
@@ -676,7 +685,7 @@ def system_daemon():
             
             # 🚀 LIVE AUTO-SYNC: প্রতি ৫ সেকেন্ড পর পর 'info.json' স্ক্যান করে টার্গেট ও লিডার আইডি ডিস্ট্রিবিউট করবে
             now = time.time()
-            if now - last_distribute >= 3:
+            if now - last_distribute >= 5:
                 distribute_targets()
                 last_distribute = now
         except Exception: pass
