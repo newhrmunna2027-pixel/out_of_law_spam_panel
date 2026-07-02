@@ -1,9 +1,12 @@
 <!-- START OF FILE templates/sections/spam.html -->
 <div class="bg-[#1B1E31]/40 border border-white/5 p-6 rounded-[2rem] shadow-lg glass-card">
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-        <h2 class="text-xl font-black text-white uppercase tracking-widest flex items-center gap-2">
-            <i class="fas fa-bolt text-indigo-400 animate-pulse"></i> Active Spam Targets (targets.txt)
-        </h2>
+        <div class="flex flex-col">
+            <h2 class="text-xl font-black text-white uppercase tracking-widest flex items-center gap-2">
+                <i class="fas fa-bolt text-indigo-400 animate-pulse"></i> Active Attacker Pairs (targets.txt)
+            </h2>
+            <span class="text-[9px] font-bold text-gray-500 uppercase tracking-widest mt-1">Duplicated Odd-Even Bot Slots with Live Squad Leader Sync</span>
+        </div>
         
         <!-- Spam Search Input -->
         <div class="relative w-full md:max-w-xs">
@@ -38,18 +41,62 @@
             let data = window.rawSpamOnlyData || {};
             let html = '';
             
-            for(let bot in data) {
-                let uids = data[bot] || [];
+            // বট আইডিগুলোকে সর্ট করে ধারাবাহিক জোড়া তৈরি করা
+            let botKeys = Object.keys(data).map(Number).sort((a, b) => a - b);
+            let numPairs = Math.ceil(botKeys.length / 2);
+            
+            for(let p = 0; p < numPairs; p++) {
+                let bot1 = 2 * p + 1;
+                let bot2 = 2 * p + 2;
+                
+                // বিজোড় এবং জোড় লিস্ট হুবহু একই হওয়ায় বিজোড় বটের ডাটা রিড করা হবে
+                let uids = data[String(bot1)] || [];
                 let filteredUids = uids.filter(t => String(t.uid).includes(term) || String(t.source).toLowerCase().includes(term));
                 
                 if (term !== '' && filteredUids.length === 0) continue;
 
+                let hasEvenBot = botKeys.includes(bot2);
+                let botsLabel = hasEvenBot ? `Bots ${bot1} & ${bot2}` : `Bot ${bot1}`;
+
                 html += `
-                <div class="bg-[#11131a]/80 backdrop-blur-md border border-white/5 rounded-[2rem] p-5">
-                    <h4 class="text-indigo-400 font-black mb-3 flex items-center gap-2 text-sm uppercase tracking-widest"><i class="fas fa-robot"></i> Bot List ${bot} <span class="text-gray-500">(${filteredUids.length} Targets)</span></h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        ${filteredUids.map(t => `<div class="bg-[#1b1e2b]/60 p-3 rounded-2xl border border-white/5 flex justify-between items-center cursor-pointer hover:border-indigo-400 transition" onclick="viewGenericProfile('${t.uid}', '${t.source}')"><div><div class="text-white font-bold text-sm font-mono">${t.uid}</div><div class="text-[9px] text-gray-500 mt-1 uppercase"><i class="fas fa-link"></i> ${t.source}</div></div><i class="fas fa-chevron-right text-gray-600 text-xs"></i></div>`).join('')}
-                        ${filteredUids.length === 0 ? '<div class="text-gray-500 text-xs italic col-span-full">No matching targets found.</div>' : ''}
+                <div class="bg-[#11131a]/80 backdrop-blur-md border border-white/5 rounded-[2rem] p-5 shadow-lg">
+                    <div class="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
+                        <h4 class="text-indigo-400 font-black flex items-center gap-2.5 text-xs sm:text-sm uppercase tracking-widest">
+                            <i class="fas fa-handshake-angle text-indigo-400"></i> Attacker Pair ${p + 1} 
+                            <span class="text-gray-500 text-[10px] font-bold">(${botsLabel})</span>
+                        </h4>
+                        <span class="bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                            ${filteredUids.length} Active Targets
+                        </span>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${filteredUids.map((t, idx) => {
+                            // ১ম UID সবসময় প্রাইমারি টার্গেট, ২য়টি সবসময় লাইভ স্কোয়াড লিডার
+                            let isPrimary = (idx === 0);
+                            let roleLabel = isPrimary ? 'Primary Target' : 'Squad Leader';
+                            let roleIcon = isPrimary ? 'fa-crosshairs text-rose-400 animate-pulse' : 'fa-crown text-yellow-400';
+                            let borderGlow = isPrimary ? 'border-rose-500/20 shadow-[0_0_15px_rgba(239,68,68,0.03)]' : 'border-yellow-500/20 shadow-[0_0_15px_rgba(234,179,8,0.03)]';
+                            
+                            return `
+                            <div class="bg-[#1b1e2b]/60 p-4 rounded-2xl border ${borderGlow} flex justify-between items-center cursor-pointer hover:border-indigo-400 transition duration-300" onclick="viewGenericProfile('${t.uid}', '${t.source}')">
+                                <div class="flex items-center gap-3.5">
+                                    <div class="w-10 h-10 rounded-xl bg-black/40 border border-white/5 flex items-center justify-center text-xs shadow-inner">
+                                        <i class="fas ${roleIcon} text-sm"></i>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <div class="text-white font-bold text-sm sm:text-base font-mono tracking-wide">${t.uid}</div>
+                                        <div class="text-[9px] text-gray-400 mt-1 uppercase tracking-widest font-black flex items-center gap-1">
+                                            <i class="fas fa-link text-[8px] text-gray-500"></i> ${roleLabel}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="p-2 bg-white/5 rounded-xl hover:bg-white/10 transition">
+                                    <i class="fas fa-chevron-right text-gray-500 text-xs"></i>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                        ${filteredUids.length === 0 ? '<div class="text-gray-500 text-xs italic col-span-full py-4 text-center">No active targets mapped in this pair.</div>' : ''}
                     </div>
                 </div>`;
             }
